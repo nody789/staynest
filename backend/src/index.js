@@ -6,6 +6,12 @@
 import 'dotenv/config'   // 讀取 .env 檔案，讓 process.env.XXX 可以使用
 import express from 'express'
 import cors from 'cors'  // 允許前端（不同 port）呼叫後端 API
+import { fileURLToPath } from 'url'
+import { dirname, join } from 'path'
+import { existsSync } from 'fs'
+
+// ES Modules 沒有 __dirname，用 import.meta.url 換算
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 // 引入各功能的路由檔案
 import authRoutes from './routes/auth.js'
@@ -32,6 +38,16 @@ app.use('/api/favorites', favoriteRoutes)
 
 // 健康檢查：用來確認伺服器是否正常運作
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }))
+
+// 正式環境：同時服務前端靜態檔案
+// build 時前端會打包到 frontend/dist，後端統一處理所有路由（SPA refresh 不會 404）
+const frontendDist = join(__dirname, '../../frontend/dist')
+if (existsSync(frontendDist)) {
+  app.use(express.static(frontendDist))
+  app.get('*', (req, res) => {
+    res.sendFile(join(frontendDist, 'index.html'))
+  })
+}
 
 // 啟動伺服器，監聽指定 port
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
