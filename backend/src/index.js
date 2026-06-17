@@ -44,7 +44,8 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok' }))
 const frontendDist = join(__dirname, '../../frontend/dist')
 if (existsSync(frontendDist)) {
   app.use(express.static(frontendDist))
-  app.get('*', (req, res) => {
+  // Express 5 不支援 app.get('*')，改用 app.use() 攔截所有未匹配路由
+  app.use((req, res) => {
     res.sendFile(join(frontendDist, 'index.html'))
   })
 }
