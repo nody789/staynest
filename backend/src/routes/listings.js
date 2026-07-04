@@ -12,40 +12,98 @@
 import { Router } from 'express'
 import prisma from '../utils/prisma.js'
 import { authenticate } from '../middleware/auth.js'
+import { upload, uploadToCloudinary } from '../utils/upload.js'
 
 const router = Router()
 
-// ── 取得房源列表（支援搜尋篩選）────────────────
+// ── 上傳房源圖片到 Cloudinary ────────────────────
+// 放在所有 /:id 路由之前，避免 'images' 被當成 id 解析
+router.post('/images', authenticate, upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: '請選擇圖片' })
+    const result = await uploadToCloudinary(req.file.buffer, 'staynest/listings')
+    res.json({ url: result.secure_url })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// ── 取得房源列表（支援搜尋篩選 + 分頁）──────────
+// GET /api/listings?location=台北&page=1&limit=12&hostId=xxx
 router.get('/', async (req, res) => {
   try {
-    // req.query 是 URL 的查詢參數，例如：
-    // GET /api/listings?location=台北&category=海邊&minPrice=500
-    const { location, category, minPrice, maxPrice, guests } = req.query
+    const { location, category, minPrice, maxPrice, guests, hostId, page, limit } = req.query
 
-    const listings = await prisma.listing.findMany({
-      where: {
-        // 展開運算子（...）：只有該參數有傳才加入篩選條件
-        // contains + insensitive = 模糊搜尋，不分大小寫
-        ...(location && { location: { contains: location, mode: 'insensitive' } }),
-        ...(category && { category }),
-        ...(minPrice && { price: { gte: parseFloat(minPrice) } }),  // gte = >= (大於等於)
-        ...(maxPrice && { price: { lte: parseFloat(maxPrice) } }),  // lte = <= (小於等於)
-        ...(guests && { maxGuests: { gte: parseInt(guests) } }),
-      },
-      include: {
-        // 同時撈出關聯資料，不用再發額外 SQL
-        host: { select: { id: true, name: true, avatar: true } },
-        reviews: { select: { rating: true } },  // 只撈評分，用來計算平均分
-      },
-      orderBy: { createdAt: 'desc' },  // 最新的排最前面
+    // 分頁計算
+    // page 預設第 1 頁，limit 預設每頁 12 筆
+    // skip = 跳過幾筆，例如第 2 頁 skip=12 就從第 13 筆開始
+    const pageNum  = Math.max(1, parseInt(page)  || 1)
+    const limitNum = Math.min(100, parseInt(limit) || 12)  // 最多 100 筆，防止過大請求
+    const skip     = (pageNum - 1) * limitNum
+
+    const where = {
+      ...(location && { location: { contains: location, mode: 'insensitive' } }),
+      ...(category && { category }),
+      ...(minPrice && { price: { gte: parseFloat(minPrice) } }),
+      ...(maxPrice && { price: { lte: parseFloat(maxPrice) } }),
+      ...(guests   && { maxGuests: { gte: parseInt(guests) } }),
+      ...(hostId   && { hostId }),  // 房東管理頁用，只查自己的房源
+    }
+
+    // Promise.all：同時執行兩個 DB 查詢，比序列執行快
+    // 一個查資料、一個查總筆數（用來計算總頁數）
+    const [listings, total] = await Promise.all([
+      prisma.listing.findMany({
+        where,
+        include: {
+          host:    { select: { id: true, name: true, avatar: true } },
+          reviews: { select: { rating: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limitNum,
+      }),
+      prisma.listing.count({ where }),
+    ])
+
+    res.json({
+      listings,
+      total,
+      page:       pageNum,
+      totalPages: Math.ceil(total / limitNum),
     })
-    res.json(listings)
   } catch (err) {
     res.status(500).json({ message: err.message })
   }
 })
 
 // ── 取得單一房源詳情 ────────────────────────────
+// ── 取得某房源的已預訂日期 ───────────────────────
+// 前端用來在日期選擇器上標示「不可選」的期間
+// 只回傳未來的 CONFIRMED 訂單（過去的不需要顯示）
+// 注意：這個路由必須放在 /:id 之前，否則 'booked-dates' 會被當成 id 解析
+router.get('/:id/booked-dates', async (req, res) => {
+  try {
+    const bookings = await prisma.booking.findMany({
+      where: {
+        listingId: req.params.id,
+        status: 'CONFIRMED',
+        // gte = greater than or equal：只取退房日在今天之後的訂單
+        checkOut: { gte: new Date() },
+      },
+      select: {
+        checkIn: true,
+        checkOut: true,
+      },
+      orderBy: { checkIn: 'asc' },
+    })
+    res.json(bookings)
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// ── 取得單一房源詳情 ─────────────────────────────
 router.get('/:id', async (req, res) => {
   try {
     // req.params.id 是 URL 路徑上的參數，例如 /api/listings/abc123
@@ -93,9 +151,11 @@ router.put('/:id', authenticate, async (req, res) => {
     // 確認這筆房源是當前登入使用者的，防止別人修改你的房源
     if (listing.hostId !== req.user.id) return res.status(403).json({ message: '無權限修改此房源' })
 
+    // 明確列出允許更新的欄位，避免惡意用戶竄改 hostId 等敏感欄位
+    const { title, description, price, location, lat, lng, images, maxGuests, category } = req.body
     const updated = await prisma.listing.update({
       where: { id: req.params.id },
-      data: req.body,  // 直接用前端傳來的資料更新
+      data: { title, description, price, location, lat, lng, images, maxGuests, category },
     })
     res.json(updated)
   } catch (err) {

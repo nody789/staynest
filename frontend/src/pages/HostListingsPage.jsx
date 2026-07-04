@@ -11,23 +11,23 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getListings, deleteListing } from '../services/api'
-import useAuthStore from '../stores/authStore'
+import { useSelector } from 'react-redux'
 
 function HostListingsPage() {
-  const { user } = useAuthStore()
+  const user = useSelector(state => state.auth.user)
   const queryClient = useQueryClient()
   // 控制刪除確認對話框的房源 ID（null 表示未開啟）
   const [deleteTarget, setDeleteTarget] = useState(null)
 
-  // 取得「我的」房源：後端目前沒有 /my-listings 路由，
-  // 所以先取全部再用 hostId 過濾（後續可優化）
-  const { data: allListings = [], isLoading } = useQuery({
-    queryKey: ['listings', {}],
-    queryFn: () => getListings().then((res) => res.data),
+  // hostId 傳給後端直接過濾，避免抓全部房源再前端篩選
+  // limit=100 是因為房東的房源數量通常不多，不需要分頁
+  const { data, isLoading } = useQuery({
+    queryKey: ['listings', { hostId: user?.id }],
+    queryFn: () => getListings({ hostId: user?.id, limit: 100 }).then((res) => res.data),
+    enabled: !!user?.id,
   })
 
-  // 只顯示我刊登的房源
-  const myListings = allListings.filter((l) => l.hostId === user?.id)
+  const myListings = data?.listings ?? []
 
   const { mutate: remove, isPending: isDeleting } = useMutation({
     mutationFn: (id) => deleteListing(id),

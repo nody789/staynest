@@ -47,10 +47,21 @@ function ListingMap({ lat, lng, title }) {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {/* Marker：在 lat/lng 位置放一個標記 */}
         <Marker position={position}>
-          {/* Popup：點擊標記後顯示房源名稱 */}
-          <Popup>{title}</Popup>
+          <Popup>
+            <div className="text-sm">
+              <p className="font-semibold mb-1">{title}</p>
+              {/* 點擊後在新分頁開啟 Google Maps，方便旅客規劃路線 */}
+              <a
+                href={`https://www.google.com/maps?q=${position[0]},${position[1]}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:underline text-xs"
+              >
+                在 Google Maps 開啟 →
+              </a>
+            </div>
+          </Popup>
         </Marker>
       </MapContainer>
     </div>

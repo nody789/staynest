@@ -1,237 +1,246 @@
-# Airbnb Clone 全端專案
+# StayNest — 全端房源租賃平台
 
-仿 Airbnb 介面的全端住宿預訂平台，使用 React + Node.js 開發。
+旅客可瀏覽房源、訂房、留評；房東可管理房源與訂單；後台可管理整個平台。
+使用 React + Node.js 全端開發，部署於 Render。
 
 ![CI](https://github.com/nody789/airbnb-clone/actions/workflows/test.yml/badge.svg)
 
----
-
-## 功能列表
-
-| 功能 | 說明 |
-|------|------|
-| 使用者註冊 / 登入 | JWT Token 驗證，7 天免重新登入 |
-| 房源搜尋與篩選 | 依地點、類別、價格、人數篩選 |
-| 房源詳情 | 圖片牆（5宮格 + 燈箱）、互動地圖、訂房 Widget |
-| 訂房系統 | 日期衝突檢查、自動計算費用、服務費模擬 |
-| 收藏清單 | 即時新增 / 移除收藏 |
-| 我的訂單 | 查看訂單狀態、取消訂單 |
-| 房東後台 | 刊登 / 編輯 / 刪除房源、管理旅客訂單 |
-| 評論系統 | 星星評分（互動式）、留言 |
-| 個人設定 | 修改名稱、頭像、一鍵開啟房東模式 |
+> **Live Demo：** [https://staynest-siy5.onrender.com](https://staynest-siy5.onrender.com)
+> **⚠️ 免費方案：** 閒置 15 分鐘後休眠，第一次載入約需 30 秒喚醒
+> **Demo 帳號：** 見下方說明
 
 ---
 
-## 技術棧與選用原因
+## 功能總覽
+
+### 一般旅客
+- 瀏覽 28 筆房源（7 種分類：海景、山景、市中心、農村、豪宅、獨特住宿、島嶼）
+- 依地點、人數、分類篩選房源
+- Leaflet 互動地圖顯示房源位置
+- 訂房（選擇日期、自動計算總金額）
+- 訂房日期衝突即時驗證
+- 查看、取消我的訂單
+- 收藏 / 取消收藏房源
+- 評論與星等評分（**限完成入住後才可留評，每人只能留一則**）
+- 個人資料設定、修改密碼
+
+### 房東（Host）
+- 個人設定頁一鍵開啟房東模式
+- 新增、編輯、刪除房源（含 Cloudinary 圖片上傳）
+- 查看訂單列表，確認或拒絕旅客預訂
+
+### Admin 後台（/admin/login）
+- 儀表板（使用者數、房源數、訂單數、評論數）
+- 使用者管理（停用 / 啟用帳號）
+- 房源管理（強制下架）
+- 訂單管理（全平台）
+- 評論管理（刪除不當評論）
+
+---
+
+## 技術棧
 
 ### 前端
 
-| 套件 | 版本 | 為什麼選它 |
-|------|------|-----------|
-| **React** | 18 | 業界主流 UI 函式庫，元件化開發，生態系最豐富 |
-| **Vite** | 5 | 比 Create React App 快 10 倍以上的開發伺服器，HMR 即時熱更新 |
-| **Tailwind CSS** | 3 | Utility-first CSS，不用寫獨立 CSS 檔，class 直接寫在 JSX，響應式設計極方便 |
-| **React Router v6** | 6 | React 官方路由方案，支援巢狀路由、私有路由守衛 |
-| **TanStack React Query** | 5 | 專門處理伺服器狀態（API 資料），自動快取、loading/error 管理，避免重複請求 |
-| **Zustand** | 4 | 輕量全域狀態管理，比 Redux 簡單 10 倍，適合中小型專案 |
-| **Axios** | 1 | 比原生 fetch 更簡潔，支援攔截器（自動帶 token）、錯誤處理更直覺 |
-| **React Leaflet** | 4 | Leaflet 地圖的 React 封裝，搭配 OpenStreetMap 完全免費，不需 API Key |
+| 用途 | 技術 | 版本 |
+|------|------|------|
+| 框架 | React | 19 |
+| 建置工具 | Vite | 5 |
+| 樣式 | Tailwind CSS | 3 |
+| 路由 | React Router DOM | 7 |
+| 伺服器狀態 | @tanstack/react-query | 5 |
+| 全域狀態 | Zustand | 5 |
+| 地圖 | Leaflet + React Leaflet | — |
+| HTTP | Axios（JWT interceptor） | — |
+| 測試 | Vitest + @testing-library/react | — |
 
 ### 後端
 
-| 套件 | 版本 | 為什麼選它 |
-|------|------|-----------|
-| **Node.js + Express** | 5 | JavaScript 全端統一語言，Express 輕量靈活，是 Node.js 最主流的框架 |
-| **Prisma ORM** | 6 | 用 JavaScript 操作資料庫，不用寫 SQL，Schema 即文件，自動產生型別 |
-| **PostgreSQL** | - | 功能完整的關聯式資料庫，支援陣列型別（圖片清單）、複雜查詢 |
-| **JWT (jsonwebtoken)** | 9 | 無狀態驗證，伺服器不需存 Session，適合前後端分離架構 |
-| **bcryptjs** | 3 | 業界標準密碼雜湊演算法，即使資料庫外洩也無法反推密碼 |
-| **cors** | 2 | 允許前端（不同 port/domain）呼叫後端 API |
-| **dotenv** | 17 | 讀取 .env 設定檔，敏感資料（密碼、金鑰）不進版本控制 |
-| **Cloudinary SDK** | 2 | 免費圖片雲端儲存，預留圖片上傳功能（目前使用 URL 輸入） |
+| 用途 | 技術 | 版本 |
+|------|------|------|
+| 框架 | Node.js + Express | 5 |
+| 語言 | JavaScript（ES Modules） | — |
+| 資料庫 ORM | Prisma | 6 |
+| 資料庫 | PostgreSQL（Neon） | — |
+| 認證 | JWT（jsonwebtoken + bcryptjs） | — |
+| 圖片儲存 | Cloudinary + multer | — |
 
-### CI/CD
+### DevOps
 
-| 工具 | 用途 |
+| 用途 | 技術 |
 |------|------|
-| **GitHub Actions** | 每次 push 到 main，自動執行前端單元測試（CI） |
-| **Vercel** | 測試通過後，自動部署前端到正式環境（CD） |
-| **Render** | 後端程式碼更新後自動重新部署（CD） |
-
-> CI = 自動跑測試確保程式沒有壞掉；CD = 測試過了自動部署，不用手動上傳
-
-### 部署（全免費）
-
-| 服務 | 用途 |
-|------|------|
-| **Vercel** | 前端部署，連結 GitHub 自動 CI/CD |
-| **Render** | 後端部署，免費方案（閒置 15 分鐘休眠，喚醒約 30 秒） |
-| **Neon** | 免費雲端 PostgreSQL，無自動暫停，可用 Navicat Premium Lite 連線 |
-| **Cloudinary** | 免費圖片儲存（25GB） |
+| CI | GitHub Actions（push to main 自動跑前端測試）|
+| 部署 | Render Web Service（後端同時 serve 前端） |
 
 ---
 
-## 專案架構
+## Demo 帳號
+
+| 角色 | Email | 密碼 | 可以做什麼 |
+|------|-------|------|-----------|
+| 旅客 | guest@demo.com | demo1234 | 訂房、收藏、留評（需先完成訂單）|
+| 房東 | host@demo.com | demo1234 | 管理房源、確認旅客訂單 |
+| 房東 | host2@demo.com | demo1234 | 同上 |
+| Admin | admin@demo.com | demo1234 | 存取 /admin 後台 |
+
+> Admin 後台入口：`{URL}/admin/login`（與前台登入分開）
+
+---
+
+## 系統架構
 
 ```
-airbnb-clone/
-├── frontend/                    # React 前端
-│   ├── src/
-│   │   ├── components/          # 共用 UI 元件
-│   │   │   ├── Navbar.jsx           # 導覽列（含下拉選單）
-│   │   │   ├── PrivateRoute.jsx     # 路由守衛（需登入）
-│   │   │   ├── ListingCard.jsx      # 房源卡片
-│   │   │   ├── SearchBar.jsx        # 搜尋列
-│   │   │   ├── CategoryFilter.jsx   # 類別篩選
-│   │   │   ├── detail/
-│   │   │   │   ├── ImageGallery.jsx     # 圖片牆 + 燈箱
-│   │   │   │   ├── BookingWidget.jsx    # 訂房框
-│   │   │   │   ├── ListingMap.jsx       # Leaflet 地圖
-│   │   │   │   └── ReviewSection.jsx    # 評論區
-│   │   │   └── host/
-│   │   │       └── CoordinatePicker.jsx # 地圖點選座標
-│   │   ├── pages/               # 頁面元件
-│   │   │   ├── HomePage.jsx         # 首頁（房源列表）
-│   │   │   ├── ListingDetailPage.jsx # 房源詳情
-│   │   │   ├── LoginPage.jsx
-│   │   │   ├── RegisterPage.jsx
-│   │   │   ├── BookingsPage.jsx     # 我的訂單
-│   │   │   ├── FavoritesPage.jsx    # 收藏清單
-│   │   │   ├── ProfilePage.jsx      # 個人設定
-│   │   │   ├── HostListingsPage.jsx # 房東管理
-│   │   │   ├── HostBookingsPage.jsx # 房東訂單管理
-│   │   │   ├── NewListingPage.jsx   # 刊登房源
-│   │   │   ├── EditListingPage.jsx  # 編輯房源
-│   │   │   └── NotFoundPage.jsx     # 404
-│   │   ├── stores/
-│   │   │   └── authStore.js         # Zustand 登入狀態
-│   │   └── services/
-│   │       └── api.js               # 所有 Axios API 函式
-│   └── package.json
-│
-├── backend/                     # Node.js 後端
-│   ├── src/
-│   │   ├── index.js             # 入口，掛載所有路由
-│   │   ├── middleware/
-│   │   │   └── auth.js          # JWT 驗證 middleware
-│   │   ├── routes/
-│   │   │   ├── auth.js          # 認證（註冊/登入/個人設定）
-│   │   │   ├── listings.js      # 房源 CRUD
-│   │   │   ├── bookings.js      # 訂單（含房東管理）
-│   │   │   ├── reviews.js       # 評論
-│   │   │   └── favorites.js     # 收藏
-│   │   └── utils/
-│   │       └── prisma.js        # Prisma Client 單例
-│   ├── prisma/
-│   │   └── schema.prisma        # 資料庫 Schema
-│   └── package.json
-│
-├── PLAN.md                      # 完整規劃文件（含 Supabase 設定步驟）
-└── README.md
+瀏覽器
+  │
+  ├── GET /              前端（React + Vite 靜態檔，後端一起 serve）
+  │     └── 呼叫 /api/*  所有 API 請求
+  │
+  └── /api/*             Express 後端（Render Web Service）
+        ├── /auth         登入 / 註冊 / 個人資料
+        ├── /listings     房源 CRUD + 搜尋篩選
+        ├── /bookings     訂房系統
+        ├── /listings/:id/reviews  評論（巢狀路由）
+        ├── /favorites    收藏
+        └── /admin        後台管理（role: ADMIN 限定）
+```
+
+**部署策略：** 後端同時 serve 前端靜態檔案，Render 上只需一個 Web Service，無需額外費用。
+
+---
+
+## 技術亮點
+
+### 1. 訂房日期衝突檢查（後端）
+
+新訂單建立前，後端用 Prisma OR 查詢涵蓋所有重疊情況：
+
+```js
+// 兩個日期區間只要有任何重疊就視為衝突
+const conflict = await prisma.booking.findFirst({
+  where: {
+    listingId,
+    status: 'CONFIRMED',
+    OR: [{ checkIn: { lt: checkOut }, checkOut: { gt: checkIn } }],
+  },
+})
+if (conflict) return res.status(409).json({ message: '此日期已被預訂' })
+```
+
+### 2. 評論資格雙重驗證
+
+後端在 POST 評論前驗證兩個條件：
+
+```js
+// 驗證 1：防重複留評
+const existingReview = await prisma.review.findFirst({
+  where: { listingId, authorId: userId },
+})
+if (existingReview) return res.status(409).json({ message: '已留過評論' })
+
+// 驗證 2：確認有完成入住紀錄
+const completedBooking = await prisma.booking.findFirst({
+  where: {
+    listingId, guestId: userId, status: 'CONFIRMED',
+    checkOut: { lt: new Date() },  // 退房日期已過
+  },
+})
+if (!completedBooking) return res.status(403).json({ message: '只有完成入住才能留評' })
+```
+
+### 3. 雙層狀態管理
+
+| 狀態類型 | 工具 | 理由 |
+|---------|------|------|
+| 伺服器資料（房源、訂單）| React Query | 自動 cache、loading、error，避免重複請求 |
+| Client 端全域（登入者）| Zustand | 輕量、不需 Provider |
+
+### 4. Admin 角色隔離
+
+後端 `isAdmin` middleware 驗證 `role === 'ADMIN'`，所有 `/api/admin/*` 路由皆需通過。
+前端 Admin 後台使用獨立 Layout 與路由守衛（`AdminRoute.jsx`），與前台完全分離。
+
+---
+
+## 資料庫 Schema
+
+```
+User
+  id, name, email, password, avatar
+  isHost（房東模式）, isActive（帳號狀態）, role（USER / ADMIN）
+  → Listing[], Booking[], Review[], Favorite[]
+
+Listing
+  id, title, description, price, location, lat, lng
+  images（String[]）, maxGuests, category
+  → Booking[], Review[], Favorite[]
+
+Booking
+  id, checkIn, checkOut, totalPrice
+  status（PENDING / CONFIRMED / CANCELLED）
+  → User(guest), Listing
+
+Review
+  id, rating（1-5）, comment
+  → User(author), Listing
+
+Favorite
+  → User, Listing（@@unique 防重複收藏）
 ```
 
 ---
 
-## 示範帳號
+## 本機開發
 
-> 執行 `cd backend && npm run seed` 後可使用以下帳號登入
+### 環境需求
+- Node.js 20+
+- PostgreSQL（或 [Neon](https://neon.tech) 免費帳號）
+- [Cloudinary](https://cloudinary.com) 免費帳號（圖片上傳）
 
-| 角色 | Email | 密碼 | 說明 |
-|------|-------|------|------|
-| 🏠 房東 | `host@demo.com` | `demo1234` | 可管理房源、查看訂單、確認/拒絕預訂 |
-| 🧳 旅客 | `guest@demo.com` | `demo1234` | 可瀏覽房源、訂房、收藏、留評論 |
-
-### 如何成為房東？
-
-任何一般帳號都可以升級為房東，步驟如下：
-
-1. 登入後，點右上角頭像 → **個人設定**
-2. 勾選「**開啟房東模式**」並儲存
-3. Navbar 選單會新增「**管理房源 / 訂單管理 / 刊登新房源**」
-
-> 升級後就能刊登房源、設定價格、接受旅客預訂。
-
----
-
-## 本機開發設定
-
-### 前置需求
-- Node.js v20.19+ 或 v22+（目前 v20.12 也可以執行，僅有警告）
-- 資料庫：本機 PostgreSQL 或 [Neon](https://neon.tech) 免費帳號
-
-### 1. Clone 專案
+### 步驟
 
 ```bash
-git clone https://github.com/你的帳號/airbnb-clone.git
+# 1. Clone
+git clone https://github.com/nody789/airbnb-clone.git
 cd airbnb-clone
-```
 
-### 2. 後端設定
+# 2. 後端環境變數
+cp backend/.env.example backend/.env
+# 編輯 backend/.env（填入 Neon、JWT_SECRET、Cloudinary）
 
-```bash
+# 3. 後端安裝 & 建立資料表
 cd backend
 npm install
+npx prisma migrate deploy
+npx prisma generate
 
-# 複製環境變數範本
-cp .env.example .env
-# 編輯 .env，填入你的 DATABASE_URL 和 JWT_SECRET
-```
+# 4. 匯入示範資料（28 筆房源 + 4 個帳號）
+node src/seed.js
 
-`.env` 範例：
-```
-DATABASE_URL="postgresql://[帳號]:[密碼]@[host]-pooler.neon.tech/neondb?sslmode=require"
-DATABASE_URL_UNPOOLED="postgresql://[帳號]:[密碼]@[host].neon.tech/neondb?sslmode=require"
-JWT_SECRET="任意一段複雜的字串"
-PORT=5000
-```
+# 5. 啟動後端（port 5000）
+npm run dev
 
-```bash
-# 建立資料庫資料表
-npx prisma migrate dev --name init
-
-# 填入示範資料（可選）
-npm run seed
-
-# 啟動後端
+# 6. 另開終端：啟動前端（port 5173）
+cd ../frontend
+npm install
 npm run dev
 ```
 
-### 3. 前端設定
+---
+
+## 測試
 
 ```bash
 cd frontend
-npm install
-npm run dev
+npm run test
 ```
 
-前端執行於 `http://localhost:5173`，API 請求自動代理到後端 `http://localhost:5000`
+GitHub Actions 在每次 push to main 時自動執行。
 
 ---
 
-## API 路由總覽
+## 未來規劃
 
-```
-POST   /api/auth/register
-POST   /api/auth/login
-GET    /api/auth/me
-PATCH  /api/auth/profile          ← 更新個人資料 / 開啟房東模式
-
-GET    /api/listings               ← 支援 ?location=&category=&minPrice=&maxPrice=&guests=
-GET    /api/listings/:id
-POST   /api/listings               ← 需登入
-PUT    /api/listings/:id           ← 需登入（本人）
-DELETE /api/listings/:id           ← 需登入（本人）
-
-GET    /api/bookings               ← 我的訂單
-POST   /api/bookings               ← 建立訂單
-PUT    /api/bookings/:id           ← 旅客取消
-GET    /api/bookings/host          ← 房東查看訂單
-PUT    /api/bookings/:id/host-action ← 房東確認/拒絕
-
-GET    /api/listings/:id/reviews
-POST   /api/listings/:id/reviews   ← 需登入
-
-GET    /api/favorites              ← 需登入
-POST   /api/favorites/:listingId   ← 需登入
-DELETE /api/favorites/:listingId   ← 需登入
-```
+- [ ] Calendar 標示已佔用日期
+- [ ] 房源列表分頁
+- [ ] 使用者頭像 Cloudinary 上傳
+- [ ] Email 通知（SendGrid）

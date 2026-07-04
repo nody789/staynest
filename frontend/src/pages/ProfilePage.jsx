@@ -6,20 +6,36 @@
 //   2. 開啟/關閉房東模式（isHost）
 //      → 開啟後 Navbar 才會出現「管理房源」
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { updateProfile, changePassword } from '../services/api'
-import useAuthStore from '../stores/authStore'
+import { useSelector, useDispatch } from 'react-redux'
+import { setUser } from '../store/authSlice'
+import { updateProfile, changePassword, uploadAvatar } from '../services/api'
 
 function ProfilePage() {
-  const { user, setUser } = useAuthStore()
+  // useSelector：讀取 state，useDispatch：取得發送器
+  const user = useSelector(state => state.auth.user)
+  const dispatch = useDispatch()
 
   // 用 user 資料初始化表單
-  const [form, setForm] = useState({
-    name: user?.name || '',
-    avatar: user?.avatar || '',
-  })
+  const [form, setForm] = useState({ name: user?.name || '' })
   const [saved, setSaved] = useState(false)  // 顯示「已儲存」提示
+
+  // 頭像上傳：fileInputRef 指向隱藏的 <input type="file">，點擊頭像時觸發它
+  const fileInputRef = useRef(null)
+
+  // 上傳頭像到 Cloudinary
+  const { mutate: saveAvatar, isPending: isUploadingAvatar } = useMutation({
+    mutationFn: (file) => uploadAvatar(file),
+    onSuccess: ({ data }) => {
+      dispatch(setUser(data))  // 更新 Redux store（同時存 localStorage）
+    },
+  })
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files?.[0]
+    if (file) saveAvatar(file)
+  }
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
@@ -30,7 +46,7 @@ function ProfilePage() {
   const { mutate: save, isPending: isSaving } = useMutation({
     mutationFn: (data) => updateProfile(data),
     onSuccess: ({ data }) => {
-      setUser(data)   // 同步更新 Zustand store 和 localStorage
+      dispatch(setUser(data))   // dispatch action → 更新 Redux store 和 localStorage
       setSaved(true)
     },
   })
@@ -75,13 +91,13 @@ function ProfilePage() {
   const { mutate: toggleHost, isPending: isToggling } = useMutation({
     mutationFn: (isHost) => updateProfile({ isHost }),
     onSuccess: ({ data }) => {
-      setUser(data)
+      dispatch(setUser(data))
     },
   })
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    save({ name: form.name, avatar: form.avatar || null })
+    save({ name: form.name })
   }
 
   return (
@@ -90,24 +106,49 @@ function ProfilePage() {
 
       <div className="space-y-8">
 
-        {/* ── 頭像預覽 ── */}
+        {/* ── 頭像預覽 + 上傳 ── */}
         <div className="flex items-center gap-6 pb-8 border-b border-gray-200">
-          {/* 頭像：有圖片就顯示圖片，否則顯示姓名首字 */}
-          <div className="w-20 h-20 rounded-full overflow-hidden bg-rose-100 flex items-center justify-center text-rose-500 font-bold text-3xl shrink-0">
-            {form.avatar ? (
-              <img
-                src={form.avatar}
-                alt="頭像"
-                className="w-full h-full object-cover"
-                onError={(e) => { e.target.style.display = 'none' }}
-              />
+          {/* 點擊頭像觸發隱藏的 file input，上傳後直接更新 */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploadingAvatar}
+            className="relative w-20 h-20 rounded-full overflow-hidden bg-rose-100 flex items-center justify-center text-rose-500 font-bold text-3xl shrink-0 group"
+          >
+            {user?.avatar ? (
+              <img src={user.avatar} alt="頭像" className="w-full h-full object-cover" />
             ) : (
               user?.name?.[0]?.toUpperCase()
             )}
-          </div>
+            {/* hover 時顯示相機 icon，提示可以點擊更換 */}
+            <span className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition rounded-full">
+              {isUploadingAvatar ? (
+                <svg className="w-5 h-5 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              )}
+            </span>
+          </button>
+
+          {/* 隱藏的 file input，只接受圖片 */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleAvatarChange}
+          />
+
           <div>
             <p className="font-semibold text-gray-900 text-lg">{user?.name}</p>
             <p className="text-gray-500 text-sm">{user?.email}</p>
+            <p className="text-xs text-gray-400 mt-1">點擊頭像更換照片</p>
             {user?.isHost && (
               <span className="inline-block mt-1 text-xs bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full font-medium">
                 房東
@@ -126,19 +167,6 @@ function ProfilePage() {
               name="name"
               value={form.name}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 transition"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              頭像網址 <span className="text-gray-400 font-normal">（選填）</span>
-            </label>
-            <input
-              name="avatar"
-              value={form.avatar}
-              onChange={handleChange}
-              placeholder="https://... 圖片網址"
               className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 transition"
             />
           </div>

@@ -7,10 +7,10 @@
 //   3. 地圖點擊取得 lat/lng 座標
 //   4. 送出後跳轉到房東管理頁
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import { createListing } from '../services/api'
+import { createListing, uploadListingImage } from '../services/api'
 import CoordinatePicker from '../components/host/CoordinatePicker'
 
 // 房源類別選項（和 CategoryFilter 一致）
@@ -32,6 +32,8 @@ const INITIAL_FORM = {
 function NewListingPage() {
   const [form, setForm] = useState(INITIAL_FORM)
   const [errors, setErrors] = useState({})  // 各欄位的驗證錯誤訊息
+  const [uploadingIndex, setUploadingIndex] = useState(null)  // 哪個圖片欄位正在上傳
+  const fileInputRefs = useRef([])  // 每個圖片欄位對應一個隱藏的 file input
   const navigate = useNavigate()
 
   // 統一更新表單欄位
@@ -60,6 +62,21 @@ function NewListingPage() {
     if (form.images.length <= 1) return  // 至少保留一個
     const newImages = form.images.filter((_, i) => i !== index)
     setForm((prev) => ({ ...prev, images: newImages }))
+  }
+
+  // 選擇圖片檔案後上傳到 Cloudinary，把回傳的 URL 填入對應欄位
+  const handleFileUpload = async (index, file) => {
+    if (!file) return
+    setUploadingIndex(index)
+    try {
+      const { data } = await uploadListingImage(file)
+      handleImageChange(index, data.url)
+      if (errors.images) setErrors((prev) => ({ ...prev, images: '' }))
+    } catch {
+      alert('圖片上傳失敗，請再試一次')
+    } finally {
+      setUploadingIndex(null)
+    }
   }
 
   // 從地圖點擊取得座標，更新 lat/lng
@@ -227,24 +244,44 @@ function NewListingPage() {
           <div className="space-y-3">
             {form.images.map((img, index) => (
               <div key={index} className="flex gap-2 items-start">
-                <div className="flex-1">
-                  <input
-                    value={img}
-                    onChange={(e) => handleImageChange(index, e.target.value)}
-                    placeholder={`圖片 ${index + 1} 的網址（https://...）`}
-                    className={inputClass()}
-                  />
+                <div className="flex-1 space-y-2">
+                  <div className="flex gap-2">
+                    {/* 網址輸入框 */}
+                    <input
+                      value={img}
+                      onChange={(e) => handleImageChange(index, e.target.value)}
+                      placeholder={`圖片 ${index + 1} 的網址（https://...）`}
+                      className={`flex-1 ${inputClass()}`}
+                    />
+                    {/* 上傳按鈕：點擊觸發對應的隱藏 file input */}
+                    <button
+                      type="button"
+                      onClick={() => fileInputRefs.current[index]?.click()}
+                      disabled={uploadingIndex === index}
+                      className="shrink-0 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-600 hover:border-gray-500 disabled:opacity-50 transition"
+                    >
+                      {uploadingIndex === index ? '上傳中...' : '上傳圖片'}
+                    </button>
+                    {/* 隱藏的 file input */}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      ref={(el) => (fileInputRefs.current[index] = el)}
+                      onChange={(e) => handleFileUpload(index, e.target.files?.[0])}
+                    />
+                  </div>
                   {/* 圖片預覽 */}
                   {img && (
                     <img
                       src={img}
                       alt="預覽"
-                      className="mt-2 h-24 w-full object-cover rounded-lg"
-                      onError={(e) => { e.target.style.display = 'none' }}  // 網址錯誤時隱藏
+                      className="h-24 w-full object-cover rounded-lg"
+                      onError={(e) => { e.target.style.display = 'none' }}
                     />
                   )}
                 </div>
-                {/* 移除按鈕（第一張不能移除） */}
+                {/* 移除按鈕 */}
                 {form.images.length > 1 && (
                   <button
                     type="button"

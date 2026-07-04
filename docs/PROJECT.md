@@ -2,11 +2,11 @@
 
 ## 專案名稱
 
-Airbnb Clone
+StayNest
 
 ## 專案描述
 
-仿 Airbnb 的房源租賃平台，提供使用者瀏覽、搜尋、預訂房源，房東可新增/管理自己的房源。
+全端房源租賃平台，提供使用者瀏覽、搜尋、預訂房源，房東可新增/管理自己的房源。
 
 ## 專案目標
 
@@ -40,14 +40,13 @@ airbnb-clone/
 │   │   ├── schema.prisma       資料庫 schema 定義
 │   │   └── migrations/         migration 歷史
 │   ├── src/
-│   │   ├── controllers/        業務邏輯
 │   │   ├── middleware/
 │   │   │   └── auth.js         JWT 驗證 middleware
-│   │   ├── routes/
-│   │   │   ├── auth.js         登入/註冊
+│   │   ├── routes/             路由 + 業務邏輯（未拆 controllers）
+│   │   │   ├── auth.js         登入/註冊/個人資料
 │   │   │   ├── listings.js     房源 CRUD
 │   │   │   ├── bookings.js     訂房
-│   │   │   ├── reviews.js      評論
+│   │   │   ├── reviews.js      評論（巢狀路由）
 │   │   │   └── favorites.js    收藏
 │   │   ├── utils/
 │   │   │   └── prisma.js       Prisma Client 單例

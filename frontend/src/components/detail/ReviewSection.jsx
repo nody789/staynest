@@ -3,14 +3,22 @@
 // ─────────────────────────────────────────────
 // 功能：
 //   1. 顯示平均評分和所有評論
-//   2. 已登入的使用者可以新增評論
+//   2. 有完成入住紀錄的旅客才能留評
+//   3. 每人只能留一則評論（防重複）
+//
+// 留評資格判斷流程：
+//   未登入              → 顯示「請登入」
+//   已留評              → 顯示「已留評」
+//   登入但未完成入住    → 顯示「需完成入住」
+//   登入且有完成入住    → 顯示表單
 
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { createReview } from '../../services/api'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { createReview, getBookings } from '../../services/api'
 import useAuthStore from '../../stores/authStore'
 
 function ReviewSection({ listingId, reviews = [], avgRating }) {
+  // useAuthStore：從 Zustand 取得目前登入的使用者
   const { user } = useAuthStore()
   const queryClient = useQueryClient()
 
@@ -19,7 +27,33 @@ function ReviewSection({ listingId, reviews = [], avgRating }) {
   const [comment, setComment] = useState('')
   const [hoverRating, setHoverRating] = useState(0)  // 滑鼠移上星星時的暫時評分
 
-  const { mutate: submitReview, isPending } = useMutation({
+  // ── 取得使用者的所有訂單（只有登入才查詢）──────
+  // enabled: !!user 的意思：只有 user 不是 null 時才發出請求
+  // 用途：判斷這個使用者是否有完成入住紀錄
+  const { data: bookings = [] } = useQuery({
+    queryKey: ['bookings'],
+    queryFn: () => getBookings().then(res => res.data),
+    enabled: !!user,
+  })
+
+  // ── 判斷留評資格 ─────────────────────────────
+  // 已留評：reviews prop 裡有這個使用者的評論
+  const hasAlreadyReviewed = reviews.some(r => r.author.id === user?.id)
+
+  // 有完成入住：這個房源有一筆訂單符合以下所有條件：
+  //   1. listingId 對應到目前房源
+  //   2. status === 'CONFIRMED'（房東已確認）
+  //   3. checkOut 已過（已退房）
+  const hasCompletedStay = bookings.some(
+    b => b.listingId === listingId &&
+         b.status === 'CONFIRMED' &&
+         new Date(b.checkOut) < new Date()
+  )
+
+  // 可以留評：已登入 + 有完成入住 + 尚未留評
+  const canReview = !!user && hasCompletedStay && !hasAlreadyReviewed
+
+  const { mutate: submitReview, isPending, error: submitError } = useMutation({
     mutationFn: (data) => createReview(listingId, data),
     onSuccess: () => {
       setComment('')
@@ -55,10 +89,34 @@ function ReviewSection({ listingId, reviews = [], avgRating }) {
         ))}
       </div>
 
-      {/* ── 新增評論表單（需登入） ── */}
-      {user ? (
+      {/* ── 留評區塊：根據資格顯示不同內容 ── */}
+      {!user ? (
+        // 未登入
+        <p className="text-sm text-gray-500 bg-gray-50 rounded-2xl p-6 text-center">
+          請先<a href="/login" className="text-rose-500 font-medium hover:underline mx-1">登入</a>才能留下評論
+        </p>
+      ) : hasAlreadyReviewed ? (
+        // 已留評過
+        <div className="bg-green-50 rounded-2xl p-6 text-center">
+          <p className="text-sm text-green-700 font-medium">您已經留下了評論，感謝您的回饋！</p>
+        </div>
+      ) : !hasCompletedStay ? (
+        // 登入但沒有完成入住紀錄
+        <div className="bg-gray-50 rounded-2xl p-6 text-center">
+          <p className="text-sm text-gray-600 font-medium mb-1">只有完成入住的旅客才能留下評論</p>
+          <p className="text-xs text-gray-400">完成訂單並退房後即可留評</p>
+        </div>
+      ) : (
+        // 可以留評：顯示表單
         <div className="bg-gray-50 rounded-2xl p-6">
           <h3 className="font-semibold text-gray-900 mb-4">留下您的評論</h3>
+
+          {/* 後端拒絕時的錯誤訊息（作為最後防線） */}
+          {submitError && (
+            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-2 mb-4">
+              {submitError.response?.data?.message || '提交失敗，請稍後再試'}
+            </p>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
 
@@ -107,10 +165,6 @@ function ReviewSection({ listingId, reviews = [], avgRating }) {
             </button>
           </form>
         </div>
-      ) : (
-        <p className="text-sm text-gray-500 bg-gray-50 rounded-2xl p-6 text-center">
-          請先<a href="/login" className="text-rose-500 font-medium hover:underline mx-1">登入</a>才能留下評論
-        </p>
       )}
     </div>
   )

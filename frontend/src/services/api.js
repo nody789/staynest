@@ -33,7 +33,15 @@ export const getMe = () => api.get('/auth/me')
 // params 是篩選條件物件，例如 { location: '台北', category: '海邊' }
 export const getListings = (params) => api.get('/listings', { params })
 export const getListing = (id) => api.get(`/listings/${id}`)
+// 取得某房源已被預訂的日期範圍（只有 CONFIRMED 且尚未退房的）
+export const getBookedDates = (id) => api.get(`/listings/${id}/booked-dates`)
 export const createListing = (data) => api.post('/listings', data)
+// 上傳單張房源圖片到 Cloudinary，回傳 { url }
+export const uploadListingImage = (file) => {
+  const formData = new FormData()
+  formData.append('image', file)
+  return api.post('/listings/images', formData)
+}
 export const updateListing = (id, data) => api.put(`/listings/${id}`, data)
 export const deleteListing = (id) => api.delete(`/listings/${id}`)
 
@@ -55,9 +63,25 @@ export const removeFavorite = (listingId) => api.delete(`/favorites/${listingId}
 // PATCH：只傳要更新的欄位（不需要送出全部資料）
 export const updateProfile = (data) => api.patch('/auth/profile', data)
 export const changePassword = (data) => api.patch('/auth/password', data)
+// FormData 上傳頭像圖片（multipart/form-data，axios 會自動設定正確的 Content-Type）
+export const uploadAvatar = (file) => {
+  const formData = new FormData()
+  formData.append('avatar', file)
+  return api.post('/auth/me/avatar', formData)
+}
 
 // ── 房東訂單 API ────────────────────────────────
 export const getHostBookings = () => api.get('/bookings/host')
 export const hostActionBooking = (id, status) => api.put(`/bookings/${id}/host-action`, { status })
+
+// ── 管理員 API ──────────────────────────────────
+export const adminGetStats = () => api.get('/admin/stats')
+export const adminGetUsers = () => api.get('/admin/users')
+export const adminToggleUser = (id, isActive) => api.patch(`/admin/users/${id}`, { isActive })
+export const adminGetListings = () => api.get('/admin/listings')
+export const adminDeleteListing = (id) => api.delete(`/admin/listings/${id}`)
+export const adminGetBookings = () => api.get('/admin/bookings')
+export const adminGetReviews = () => api.get('/admin/reviews')
+export const adminDeleteReview = (id) => api.delete(`/admin/reviews/${id}`)
 
 export default api

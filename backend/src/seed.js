@@ -52,10 +52,56 @@ async function main() {
     },
   })
 
+  await prisma.user.create({
+    data: {
+      name: '系統管理員',
+      email: 'admin@demo.com',
+      password: hashedPassword,
+      isHost: false,
+      role: 'ADMIN',
+    },
+  })
+
+  // 額外旅客（作為評論者，讓假資料看起來更真實）
+  const reviewer2 = await prisma.user.create({
+    data: {
+      name: '張志明',
+      email: 'guest2@demo.com',
+      password: hashedPassword,
+      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop',
+    },
+  })
+  const reviewer3 = await prisma.user.create({
+    data: {
+      name: '李怡君',
+      email: 'guest3@demo.com',
+      password: hashedPassword,
+      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&auto=format&fit=crop',
+    },
+  })
+  const reviewer4 = await prisma.user.create({
+    data: {
+      name: '吳家豪',
+      email: 'guest4@demo.com',
+      password: hashedPassword,
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop',
+    },
+  })
+  const reviewer5 = await prisma.user.create({
+    data: {
+      name: '趙雅婷',
+      email: 'guest5@demo.com',
+      password: hashedPassword,
+      avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop',
+    },
+  })
+
   console.log('👤 已建立帳號：')
-  console.log('   host@demo.com / demo1234（房東）')
+  console.log('   host@demo.com  / demo1234（房東）')
   console.log('   host2@demo.com / demo1234（房東 2）')
   console.log('   guest@demo.com / demo1234（旅客）')
+  console.log('   admin@demo.com / demo1234（管理員）')
+  console.log('   guest2~5@demo.com / demo1234（額外評論者）')
 
   const listingsData = [
     // ── 城市（4筆）──────────────────────────────
@@ -388,50 +434,99 @@ async function main() {
   }
   console.log(`🏠 已建立 ${listings.length} 筆房源（7 個分類，每類 4 筆）`)
 
-  // ── 評論 ──────────────────────────────────────
-  const reviewComments = [
+  // ── 訂單與評論 ────────────────────────────────
+  // 說明：seed 直接寫入 DB，繞過 API 的評論資格驗證
+  // 但仍為每位評論者建立過去的已完成訂單，保持資料邏輯正確
+
+  const today = new Date()
+  const pastDate  = (days) => new Date(today.getTime() - days * 24 * 60 * 60 * 1000)
+  const futureDate = (days) => new Date(today.getTime() + days * 24 * 60 * 60 * 1000)
+
+  // 所有評論者（5 人）
+  const reviewers = [guest, reviewer2, reviewer3, reviewer4, reviewer5]
+
+  // 評論素材池（12 則，不同分數）
+  const commentPool = [
     { rating: 5, comment: '非常棒的體驗！環境乾淨，房東親切，強烈推薦！' },
-    { rating: 4, comment: '整體很滿意，地點方便，設備齊全。下次還會再來。' },
     { rating: 5, comment: '超出預期的住宿！景色美不勝收，早餐也很豐盛。' },
-    { rating: 4, comment: '性價比高，適合家庭旅遊。唯一小缺點是停車稍不便。' },
     { rating: 5, comment: '夢幻般的住宿體驗，已經開始計劃下次再來了！' },
-    { rating: 3, comment: '環境不錯，但設備有些老舊，希望能翻新一下。' },
     { rating: 5, comment: '房東超熱心，提供了很多在地旅遊建議，玩得很盡興！' },
-    { rating: 4, comment: '安靜舒適，是放鬆身心的好地方，很快就訂了下次。' },
+    { rating: 5, comment: '設備超新、超乾淨，待起來非常舒服，CP 值很高！' },
+    { rating: 4, comment: '整體很滿意，地點方便，設備齊全。下次還會再來。' },
+    { rating: 4, comment: '性價比高，適合家庭旅遊。唯一小缺點是停車稍不便。' },
+    { rating: 4, comment: '安靜舒適，是放鬆身心的好地方，很快又訂了下次。' },
+    { rating: 4, comment: '環境很好，房東也很親切，只是交通需要開車比較方便。' },
+    { rating: 4, comment: '景色優美，周邊配套設施完善，是個令人放鬆的好地方。' },
+    { rating: 3, comment: '環境不錯，但設備有些老舊，希望能翻新一下。' },
+    { rating: 3, comment: '基本設施都有，但比照片看起來小一點。整體還是值得推薦。' },
   ]
 
+  // listings[2] 和 listings[5] 保留給 guest 示範留評（seed 不預先加 guest 的評論）
+  const guestDemoListings = new Set([2, 5])
+
   let reviewCount = 0
+  let pastBookingCount = 0
+
   for (let i = 0; i < listings.length; i++) {
-    const numReviews = (i % 3) + 1
+    // 每個房源 2~4 則評論
+    const numReviews = (i % 3) + 2
+
     for (let j = 0; j < numReviews; j++) {
-      const comment = reviewComments[(i + j) % reviewComments.length]
+      // 循環選評論者（5 人），確保同一房源不重複用同一人
+      const reviewer = reviewers[(i + j) % reviewers.length]
+
+      // guest 不評 demo 房源（留給 demo 示範）
+      if (reviewer.id === guest.id && guestDemoListings.has(i)) continue
+
+      // 為此評論者建立過去的已完成訂單（讓評論資格邏輯成立）
+      const checkIn  = pastDate(80 - j * 15 - (i % 7))
+      const checkOut = new Date(checkIn.getTime() + 3 * 24 * 60 * 60 * 1000)
+      await prisma.booking.create({
+        data: {
+          guestId: reviewer.id,
+          listingId: listings[i].id,
+          checkIn,
+          checkOut,
+          totalPrice: listings[i].price * 3,
+          status: 'CONFIRMED',
+        },
+      })
+      pastBookingCount++
+
+      // 建立評論
+      const comment = commentPool[(i * 3 + j * 7) % commentPool.length]
       await prisma.review.create({
-        data: { ...comment, authorId: guest.id, listingId: listings[i].id },
+        data: { ...comment, authorId: reviewer.id, listingId: listings[i].id },
       })
       reviewCount++
     }
   }
-  console.log(`⭐ 已建立 ${reviewCount} 筆評論`)
+  console.log(`⭐ 已建立 ${reviewCount} 筆評論（來自 5 位評論者）`)
+  console.log(`📅 已建立 ${pastBookingCount} 筆過去已完成訂單（支撐評論資格）`)
 
-  // ── 訂單 ──────────────────────────────────────
-  const today = new Date()
-  const futureDate = (days) => new Date(today.getTime() + days * 24 * 60 * 60 * 1000)
-
+  // guest@demo.com 的 demo 訂單
+  // listings[2] 和 [5]：過去已完成，guest 尚未留評 → 可示範留評功能
+  // listings[0]：未來已確認，listings[4] / [8]：未來待審核
   await prisma.booking.createMany({
     data: [
-      { guestId: guest.id, listingId: listings[0].id, checkIn: futureDate(7), checkOut: futureDate(10), totalPrice: listings[0].price * 3, status: 'CONFIRMED' },
-      { guestId: guest.id, listingId: listings[4].id, checkIn: futureDate(20), checkOut: futureDate(23), totalPrice: listings[4].price * 3, status: 'PENDING' },
-      { guestId: guest.id, listingId: listings[8].id, checkIn: futureDate(35), checkOut: futureDate(37), totalPrice: listings[8].price * 2, status: 'PENDING' },
+      { guestId: guest.id, listingId: listings[2].id, checkIn: pastDate(20), checkOut: pastDate(17), totalPrice: listings[2].price * 3, status: 'CONFIRMED' },
+      { guestId: guest.id, listingId: listings[5].id, checkIn: pastDate(40), checkOut: pastDate(37), totalPrice: listings[5].price * 3, status: 'CONFIRMED' },
+      { guestId: guest.id, listingId: listings[0].id, checkIn: futureDate(7),  checkOut: futureDate(10), totalPrice: listings[0].price * 3, status: 'CONFIRMED' },
+      { guestId: guest.id, listingId: listings[4].id, checkIn: futureDate(20), checkOut: futureDate(23), totalPrice: listings[4].price * 3, status: 'PENDING'   },
+      { guestId: guest.id, listingId: listings[8].id, checkIn: futureDate(35), checkOut: futureDate(37), totalPrice: listings[8].price * 2, status: 'PENDING'   },
     ],
   })
-  console.log('📅 已建立 3 筆訂單')
+  console.log('📅 已建立 5 筆 guest demo 訂單（2 筆過去可留評 + 3 筆未來）')
 
   console.log('\n✅ 示範資料建立完成！')
   console.log('────────────────────────────────────')
-  console.log('  host@demo.com  / demo1234（房東）')
-  console.log('  host2@demo.com / demo1234（房東 2）')
-  console.log('  guest@demo.com / demo1234（旅客）')
+  console.log('  host@demo.com   / demo1234（房東）')
+  console.log('  host2@demo.com  / demo1234（房東 2）')
+  console.log('  guest@demo.com  / demo1234（旅客，可示範留評）')
+  console.log('  admin@demo.com  / demo1234（管理員）')
+  console.log('  guest2~5@demo.com / demo1234（額外評論者）')
   console.log('────────────────────────────────────')
+  console.log('💡 guest 可留評的房源：listings[2]（大安區文青咖啡公寓）、listings[5]（某房源）')
 }
 
 main()

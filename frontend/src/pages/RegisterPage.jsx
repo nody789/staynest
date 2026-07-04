@@ -4,15 +4,17 @@
 
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useDispatch } from 'react-redux'
+import { setAuth } from '../store/authSlice'
 import { register } from '../services/api'
-import useAuthStore from '../stores/authStore'
 
 function RegisterPage() {
   const [form, setForm] = useState({ name: '', email: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const { setAuth } = useAuthStore()
+  // dispatch：Redux 的發送器，所有狀態更新都要透過它
+  const dispatch = useDispatch()
   const navigate = useNavigate()
 
   // 統一處理所有欄位的輸入
@@ -28,7 +30,7 @@ function RegisterPage() {
     setError('')
     try {
       const { data } = await register(form)
-      setAuth(data.user, data.token)
+      dispatch(setAuth({ user: data.user, token: data.token }))
       navigate('/')
     } catch (err) {
       setError(err.response?.data?.message || '註冊失敗，請稍後再試')

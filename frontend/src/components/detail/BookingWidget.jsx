@@ -9,8 +9,8 @@
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { createBooking } from '../../services/api'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { createBooking, getBookedDates } from '../../services/api'
 import useAuthStore from '../../stores/authStore'
 
 function BookingWidget({ listing }) {
@@ -18,7 +18,17 @@ function BookingWidget({ listing }) {
   const [checkOut, setCheckOut] = useState('')
   const [message, setMessage] = useState('')   // 成功或錯誤訊息
 
+  // 從 Zustand store 取得登入使用者
   const { user } = useAuthStore()
+
+  // ── 取得這個房源已被預訂的日期範圍 ─────────────
+  // 用途：顯示給使用者看哪些日期不可選，以及在送出前做前端驗證
+  // staleTime：5 分鐘內不重新請求（訂房不會太頻繁變動）
+  const { data: bookedPeriods = [] } = useQuery({
+    queryKey: ['booked-dates', listing.id],
+    queryFn: () => getBookedDates(listing.id).then(res => res.data),
+    staleTime: 1000 * 60 * 5,
+  })
   const navigate = useNavigate()
   const queryClient = useQueryClient()  // 用來讓某個快取失效（觸發重新請求）
 
@@ -50,6 +60,16 @@ function BookingWidget({ listing }) {
     },
   })
 
+  // ── 檢查選擇的日期是否與已預訂期間衝突 ──────────
+  // 兩個日期區間重疊的條件：A.start < B.end 且 A.end > B.start
+  const hasDateConflict = (start, end) => {
+    return bookedPeriods.some(period => {
+      const bookedStart = new Date(period.checkIn)
+      const bookedEnd = new Date(period.checkOut)
+      return new Date(start) < bookedEnd && new Date(end) > bookedStart
+    })
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault()
     setMessage('')
@@ -65,6 +85,12 @@ function BookingWidget({ listing }) {
       return
     }
 
+    // 前端先驗證日期衝突（後端也會再驗一次，這裡只是提前告知使用者）
+    if (hasDateConflict(checkIn, checkOut)) {
+      setMessage('此期間已有其他旅客預訂，請重新選擇日期')
+      return
+    }
+
     book({
       listingId: listing.id,
       checkIn,
@@ -75,6 +101,12 @@ function BookingWidget({ listing }) {
 
   // 今天的日期（input[type=date] 的 min 值，不能選過去的日期）
   const today = new Date().toISOString().split('T')[0]
+
+  // 格式化日期顯示用：2024-01-15 → 1/15
+  const formatDate = (iso) => {
+    const d = new Date(iso)
+    return `${d.getMonth() + 1}/${d.getDate()}`
+  }
 
   return (
     <div className="border border-gray-300 rounded-2xl p-6 shadow-lg">
@@ -118,6 +150,20 @@ function BookingWidget({ listing }) {
             </div>
           </div>
         </div>
+
+        {/* 已佔用日期提示（有預訂紀錄才顯示） */}
+        {bookedPeriods.length > 0 && (
+          <div className="mb-4 text-xs text-gray-500">
+            <p className="font-medium mb-1">已預訂期間（不可選）：</p>
+            <div className="flex flex-wrap gap-1">
+              {bookedPeriods.map((p, i) => (
+                <span key={i} className="bg-gray-100 rounded px-2 py-0.5">
+                  {formatDate(p.checkIn)} – {formatDate(p.checkOut)}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 訂房按鈕 */}
         <button

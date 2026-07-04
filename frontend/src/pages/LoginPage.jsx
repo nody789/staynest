@@ -12,9 +12,23 @@
 
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useDispatch } from 'react-redux'       // Redux：取得 dispatch 函式
+import { setAuth } from '../store/authSlice'    // Redux：引入 action creator
 import { login } from '../services/api'
-import useAuthStore from '../stores/authStore'
 
+// 【Redux 使用說明 — 對比 Zustand】
+//
+//  Zustand 寫法：
+//    const { setAuth } = useAuthStore()
+//    setAuth(user, token)   ← 直接呼叫
+//
+//  Redux 寫法：
+//    const dispatch = useDispatch()
+//    dispatch(setAuth({ user, token }))   ← 透過 dispatch 發送 action
+//
+//  為什麼 Redux 要多一個 dispatch？
+//  因為 Redux 強制所有狀態更新都要經過 dispatch → reducer 的流程
+//  這讓每個操作都被記錄下來，可以用 Redux DevTools 追蹤完整歷史
 function LoginPage() {
   // useState：管理表單的值，每次輸入都會更新
   const [email, setEmail] = useState('')
@@ -22,7 +36,8 @@ function LoginPage() {
   const [error, setError] = useState('')       // 顯示錯誤訊息
   const [loading, setLoading] = useState(false) // 按鈕 loading 狀態
 
-  const { setAuth } = useAuthStore()
+  // dispatch：Redux 的「發送器」，所有狀態更新都要透過它
+  const dispatch = useDispatch()
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
@@ -33,7 +48,10 @@ function LoginPage() {
     try {
       // 呼叫登入 API，回傳 { user, token }
       const { data } = await login({ email, password })
-      setAuth(data.user, data.token)  // 存到 Zustand store 和 localStorage
+      // dispatch(action)：發送 action 給 Redux store
+      // setAuth({ user, token }) 產生 action：{ type: 'auth/setAuth', payload: { user, token } }
+      // reducer 收到後更新 state.auth.user 和 state.auth.token
+      dispatch(setAuth({ user: data.user, token: data.token }))
       navigate('/')                   // 跳轉到首頁
     } catch (err) {
       // err.response.data.message 是後端回傳的錯誤訊息

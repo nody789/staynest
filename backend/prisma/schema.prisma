@@ -15,6 +15,8 @@ model User {
   password  String
   avatar    String?
   isHost    Boolean   @default(false)
+  isActive  Boolean   @default(true)
+  role      Role      @default(USER)
   createdAt DateTime  @default(now())
 
   listings  Listing[]
@@ -86,4 +88,9 @@ enum BookingStatus {
   PENDING
   CONFIRMED
   CANCELLED
+}
+
+enum Role {
+  USER
+  ADMIN
 }

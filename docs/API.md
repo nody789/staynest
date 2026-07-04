@@ -47,7 +47,8 @@ Token 在 login/register 時取得，存於前端（localStorage 或 Zustand sto
 | POST | /auth/register | 註冊（name, email, password） | 公開 |
 | POST | /auth/login | 登入，回傳 JWT token | 公開 |
 | GET | /auth/me | 取得當前登入使用者 | 登入 |
-| PATCH | /auth/password | 修改密碼 | 登入 |
+| PATCH | /auth/profile | 更新個人資料（name, avatar, isHost） | 登入 |
+| PATCH | /auth/password | 修改密碼（currentPassword, newPassword） | 登入 |
 
 ### 房源（Listings）
 

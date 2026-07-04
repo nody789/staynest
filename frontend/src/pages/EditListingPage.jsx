@@ -5,10 +5,10 @@
 //   1. 先用 useQuery 拉取現有資料，填入表單
 //   2. 送出時呼叫 updateListing（PUT）而非 createListing（POST）
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { getListing, updateListing } from '../services/api'
+import { getListing, updateListing, uploadListingImage } from '../services/api'
 import CoordinatePicker from '../components/host/CoordinatePicker'
 
 const CATEGORIES = ['海邊', '山區', '城市', '鄉村', '溫泉', '島嶼', '露營']
@@ -18,6 +18,8 @@ function EditListingPage() {
   const navigate = useNavigate()
   const [form, setForm] = useState(null)  // null 代表還在等資料
   const [errors, setErrors] = useState({})
+  const [uploadingIndex, setUploadingIndex] = useState(null)
+  const fileInputRefs = useRef([])
 
   // 取得現有房源資料
   const { data: listing, isLoading } = useQuery({
@@ -64,6 +66,21 @@ function EditListingPage() {
   const removeImage = (index) => {
     if (form.images.length <= 1) return
     setForm((prev) => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }))
+  }
+
+  const handleFileUpload = async (index, file) => {
+    if (!file) return
+    setUploadingIndex(index)
+    try {
+      const { data } = await uploadListingImage(file)
+      const newImages = [...form.images]
+      newImages[index] = data.url
+      setForm((prev) => ({ ...prev, images: newImages }))
+    } catch {
+      alert('圖片上傳失敗，請再試一次')
+    } finally {
+      setUploadingIndex(null)
+    }
   }
 
   const handleMapClick = ({ lat, lng }) => {
@@ -168,15 +185,32 @@ function EditListingPage() {
           <div className="space-y-3">
             {form.images.map((img, index) => (
               <div key={index} className="flex gap-2 items-start">
-                <div className="flex-1">
-                  <input
-                    value={img}
-                    onChange={(e) => handleImageChange(index, e.target.value)}
-                    placeholder={`圖片 ${index + 1} 的網址`}
-                    className={inputClass()}
-                  />
+                <div className="flex-1 space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      value={img}
+                      onChange={(e) => handleImageChange(index, e.target.value)}
+                      placeholder={`圖片 ${index + 1} 的網址`}
+                      className={`flex-1 ${inputClass()}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRefs.current[index]?.click()}
+                      disabled={uploadingIndex === index}
+                      className="shrink-0 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-600 hover:border-gray-500 disabled:opacity-50 transition"
+                    >
+                      {uploadingIndex === index ? '上傳中...' : '上傳圖片'}
+                    </button>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      ref={(el) => (fileInputRefs.current[index] = el)}
+                      onChange={(e) => handleFileUpload(index, e.target.files?.[0])}
+                    />
+                  </div>
                   {img && (
-                    <img src={img} alt="預覽" className="mt-2 h-24 w-full object-cover rounded-lg"
+                    <img src={img} alt="預覽" className="h-24 w-full object-cover rounded-lg"
                       onError={(e) => { e.target.style.display = 'none' }} />
                   )}
                 </div>

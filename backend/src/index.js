@@ -19,13 +19,22 @@ import listingRoutes from './routes/listings.js'
 import bookingRoutes from './routes/bookings.js'
 import reviewRoutes from './routes/reviews.js'
 import favoriteRoutes from './routes/favorites.js'
+import adminRoutes from './routes/admin.js'
 
 const app = express()                          // 建立 Express 應用程式
 const PORT = process.env.PORT || 5000          // 優先用 .env 的 PORT，否則預設 5000
 
 // ── 全域中介軟體 (Middleware) ──
 // Middleware 是每個請求進來都會先跑的處理函式
-app.use(cors())           // 允許跨來源請求（前端 localhost:5173 → 後端 localhost:5000）
+// 明確指定允許的 origin，正式環境因前後端同網域不需要跨域，開發環境只開放 Vite dev server
+const allowedOrigins = ['http://localhost:5173']
+app.use(cors({
+  origin: (origin, callback) => {
+    // origin 為 undefined 表示同源或 curl/Postman 等工具，直接允許
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
+    callback(new Error('Not allowed by CORS'))
+  },
+}))
 app.use(express.json())   // 讓後端能讀取前端傳來的 JSON 資料 (req.body)
 
 // ── 路由掛載 ──
@@ -35,6 +44,7 @@ app.use('/api/listings', listingRoutes)
 app.use('/api/bookings', bookingRoutes)
 app.use('/api/listings/:listingId/reviews', reviewRoutes)  // 巢狀路由：特定房源的評論
 app.use('/api/favorites', favoriteRoutes)
+app.use('/api/admin', adminRoutes)
 
 // 健康檢查：用來確認伺服器是否正常運作
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }))

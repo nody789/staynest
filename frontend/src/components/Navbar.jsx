@@ -7,10 +7,28 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import useAuthStore from '../stores/authStore'
+import { useSelector, useDispatch } from 'react-redux'  // Redux：讀取 state 和發送 action
+import { logout } from '../store/authSlice'             // Redux：引入 logout action creator
 
+// 【Redux 使用說明 — 對比 Zustand】
+//
+//  Zustand 寫法：
+//    const { user, logout } = useAuthStore()
+//
+//  Redux 寫法：
+//    const user = useSelector(state => state.auth.user)   ← 讀取 state
+//    const dispatch = useDispatch()                        ← 取得發送器
+//    dispatch(logout())                                    ← 發送 action
+//
+//  useSelector 是什麼？
+//    → 從 Redux store 讀取資料的 hook
+//    → 參數是一個函式（selector），告訴 Redux「我要哪一塊 state」
+//    → state.auth 對應 store/index.js 裡的 reducer: { auth: authReducer }
 function Navbar() {
-  const { user, logout } = useAuthStore()
+  // useSelector：讀取 Redux store 的 state
+  // state.auth.user → store → reducer: { auth } → authSlice 的 user
+  const user = useSelector(state => state.auth.user)
+  const dispatch = useDispatch()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)    // 下拉選單開關
   const menuRef = useRef(null)                        // 指向選單 DOM，偵測點擊範圍
@@ -31,7 +49,7 @@ function Navbar() {
   }, [])
 
   const handleLogout = () => {
-    logout()
+    dispatch(logout())  // dispatch action → reducer 清除 state 和 localStorage
     setMenuOpen(false)
     navigate('/')
   }
@@ -53,7 +71,7 @@ function Navbar() {
 
         {/* Logo */}
         <Link to="/" className="text-rose-500 font-bold text-2xl tracking-tight shrink-0">
-          airbnb
+          StayNest
         </Link>
 
         {/* 搜尋列（桌機版）── 實際可輸入的表單 */}

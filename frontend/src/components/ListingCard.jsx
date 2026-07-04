@@ -6,11 +6,11 @@
 
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
-import useAuthStore from '../stores/authStore'
+import { useSelector } from 'react-redux'
 import { addFavorite, removeFavorite } from '../services/api'
 
 function ListingCard({ listing }) {
-  const { user } = useAuthStore()
+  const user = useSelector(state => state.auth.user)
   const [isFav, setIsFav] = useState(false)
 
   // 計算平均評分

@@ -13,34 +13,55 @@ import HostBookingsPage from './pages/HostBookingsPage'
 import ProfilePage from './pages/ProfilePage'
 import NotFoundPage from './pages/NotFoundPage'
 import PrivateRoute from './components/PrivateRoute'
+import AdminRoute from './components/AdminRoute'
+import AdminLoginPage from './pages/admin/AdminLoginPage'
+import AdminDashboard from './pages/admin/AdminDashboard'
+import AdminUsersPage from './pages/admin/AdminUsersPage'
+import AdminListingsPage from './pages/admin/AdminListingsPage'
+import AdminBookingsPage from './pages/admin/AdminBookingsPage'
+import AdminReviewsPage from './pages/admin/AdminReviewsPage'
 
 function App() {
   return (
     <div className="min-h-screen bg-white">
-      <Navbar />
-      <main className="pt-20">
-        <Routes>
-          {/* 公開路由 */}
-          <Route path="/" element={<HomePage />} />
-          <Route path="/listings/:id" element={<ListingDetailPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+      <Routes>
+        {/* ── 管理後台（獨立 Layout，不含前台 Navbar）── */}
+        <Route path="/admin/login" element={<AdminLoginPage />} />
+        <Route element={<AdminRoute />}>
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/users"     element={<AdminUsersPage />} />
+          <Route path="/admin/listings"  element={<AdminListingsPage />} />
+          <Route path="/admin/bookings"  element={<AdminBookingsPage />} />
+          <Route path="/admin/reviews"   element={<AdminReviewsPage />} />
+        </Route>
 
-          {/* 私有路由（需登入） */}
-          <Route element={<PrivateRoute />}>
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/bookings" element={<BookingsPage />} />
-            <Route path="/favorites" element={<FavoritesPage />} />
-            <Route path="/host/listings" element={<HostListingsPage />} />
-            <Route path="/host/listings/new" element={<NewListingPage />} />
-            <Route path="/host/listings/:id/edit" element={<EditListingPage />} />
-            <Route path="/host/bookings" element={<HostBookingsPage />} />
-          </Route>
+        {/* ── 前台（含 Navbar）── */}
+        <Route path="/*" element={
+          <>
+            <Navbar />
+            <main className="pt-20">
+              <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/listings/:id" element={<ListingDetailPage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
 
-          {/* 404：放最後，所有不匹配的路由都會到這裡 */}
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </main>
+                <Route element={<PrivateRoute />}>
+                  <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/bookings" element={<BookingsPage />} />
+                  <Route path="/favorites" element={<FavoritesPage />} />
+                  <Route path="/host/listings" element={<HostListingsPage />} />
+                  <Route path="/host/listings/new" element={<NewListingPage />} />
+                  <Route path="/host/listings/:id/edit" element={<EditListingPage />} />
+                  <Route path="/host/bookings" element={<HostBookingsPage />} />
+                </Route>
+
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+            </main>
+          </>
+        } />
+      </Routes>
     </div>
   )
 }
