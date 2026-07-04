@@ -25,12 +25,11 @@ const app = express()                          // 建立 Express 應用程式
 const PORT = process.env.PORT || 5000          // 優先用 .env 的 PORT，否則預設 5000
 
 // ── 全域中介軟體 (Middleware) ──
-// Middleware 是每個請求進來都會先跑的處理函式
-// 明確指定允許的 origin，正式環境因前後端同網域不需要跨域，開發環境只開放 Vite dev server
+// CORS 只套在 /api 路由：靜態檔案和前端同網域，不需要 CORS
+// 開發環境允許 Vite dev server (localhost:5173)，無 origin 表示 curl/Postman 也允許
 const allowedOrigins = ['http://localhost:5173']
-app.use(cors({
+app.use('/api', cors({
   origin: (origin, callback) => {
-    // origin 為 undefined 表示同源或 curl/Postman 等工具，直接允許
     if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
     callback(new Error('Not allowed by CORS'))
   },
