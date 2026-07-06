@@ -416,6 +416,88 @@ helmet 是 Express 的 middleware，
 
 ### API 設計類
 
+**Q：你這個專案的 API 是 RESTful 嗎？為什麼用 RESTful？**
+```
+是的，這個專案採用 RESTful API 設計風格。
+
+RESTful 的核心概念是：
+  用「資源（Resource）」思考，而不是「動作」。
+  URL 代表資源，HTTP Method 代表對這個資源做什麼動作。
+
+例如「房源」這個資源：
+  GET    /api/listings          → 取得所有房源（查）
+  GET    /api/listings/:id      → 取得單筆房源（查）
+  POST   /api/listings          → 新增房源（增）
+  PUT    /api/listings/:id      → 更新房源（改）
+  DELETE /api/listings/:id      → 刪除房源（刪）
+
+選擇 RESTful 的原因：
+1. 直覺，任何工程師看到 URL + Method 就知道這個 API 在做什麼
+2. 前後端分離架構的標準做法，容易找到參考資料和工具
+3. 搭配 HTTP 狀態碼（200/201/400/401/404）語意更完整
+
+如果面試官追問「有什麼缺點或什麼時候不用 RESTful」：
+```
+
+**Q：RESTful API 有什麼缺點？什麼情況不適合？**
+```
+RESTful 的缺點：
+
+1. Over-fetching（拿太多）
+   GET /api/users/:id 回傳整個 user 物件，
+   但如果前端只需要顯示名字，其他欄位都是浪費。
+
+2. Under-fetching（拿太少，N+1 問題）
+   要在房源列表顯示「房東名稱」，
+   先 GET /api/listings 拿 28 筆，
+   再對每筆發 GET /api/users/:hostId，
+   總共發 29 支 API，效能很差。
+
+3. 版本管理麻煩
+   欄位改名、格式大改時需要發新版（/v2/），
+   舊版還要維護一段時間。
+
+什麼時候考慮改用 GraphQL：
+- 前端需要高度客製化查詢（行動裝置省流量）
+- 資源關聯複雜，經常需要一次拿多個關聯資料
+- 多個客戶端（Web / App / 第三方）需求差異很大
+
+這個專案（StayNest）為什麼沒用 GraphQL：
+- 中小型專案，資料關聯不複雜
+- 只有一個前端（React Web），需求固定
+- RESTful 學習成本低，團隊熟悉
+- GraphQL 有額外的 Schema 定義成本
+```
+
+**Q：這個專案的 API 設計有遵守什麼規範嗎？**
+```
+有幾個我遵守的設計原則：
+
+1. URL 用名詞，不用動詞
+   ✓ DELETE /api/listings/:id
+   ✗ POST  /api/deleteListing
+
+2. URL 用複數
+   ✓ /api/listings
+   ✗ /api/listing
+
+3. HTTP 狀態碼有語意
+   200 OK        → 成功
+   201 Created   → 成功建立資源（POST 新增後回這個）
+   400 Bad Request → 前端傳錯資料（格式錯、缺欄位）
+   401 Unauthorized → 沒有登入
+   403 Forbidden → 登入了但沒有權限（例如改別人的房源）
+   404 Not Found → 資源不存在
+   500 Internal Server Error → 後端出錯
+
+4. 巢狀資源表示所屬關係
+   GET /api/listings/:id/reviews → 某房源的評論
+   POST /api/listings/:id/reviews → 新增評論到某房源
+
+5. 錯誤一律回傳 { message: "..." } 格式
+   讓前端統一處理錯誤提示。
+```
+
 **Q：為什麼 API URL 要加版本號（/v1/）？**
 ```
 當 API 需要做 Breaking Change（例如欄位改名、格式大改）時，
