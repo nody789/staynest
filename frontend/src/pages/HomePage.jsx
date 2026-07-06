@@ -19,8 +19,8 @@ import CategoryFilter from '../components/CategoryFilter'
 import ListingsMap from '../components/ListingsMap'
 
 function HomePage() {
-  // 地圖顯示開關（預設顯示，手機版用 CSS 隱藏）
-  const [showMap, setShowMap] = useState(true)
+  // 地圖顯示開關（預設隱藏，點擊「顯示地圖」按鈕才展開）
+  const [showMap, setShowMap] = useState(false)
 
   // useSearchParams：讀寫 URL query string
   //   searchParams.get('location') → 讀取 ?location= 的值
