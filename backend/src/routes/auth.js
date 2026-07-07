@@ -17,9 +17,11 @@ import { upload, uploadToCloudinary } from '../utils/upload.js'
 import { requireFields, isValidEmail } from '../utils/validate.js'
 
 // 登入限流：同一 IP 15 分鐘內最多嘗試 10 次，防止暴力破解
+// skip：測試環境略過，避免跑測試時被自己擋住
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
+  skip: () => process.env.NODE_ENV === 'test',
   message: { message: '嘗試次數過多，請 15 分鐘後再試' },
   standardHeaders: true,
   legacyHeaders: false,
