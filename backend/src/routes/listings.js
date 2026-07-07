@@ -13,6 +13,7 @@ import { Router } from 'express'
 import prisma from '../utils/prisma.js'
 import { authenticate } from '../middleware/auth.js'
 import { upload, uploadToCloudinary } from '../utils/upload.js'
+import { requireFields, isPositiveNumber } from '../utils/validate.js'
 
 const router = Router()
 
@@ -130,6 +131,12 @@ router.post('/', authenticate, async (req, res) => {
   try {
     const { title, description, price, location, lat, lng, images, maxGuests, category } = req.body
 
+    // 驗證必填欄位與合法值
+    const fieldError = requireFields(req.body, 'title', 'description', 'price', 'location', 'maxGuests', 'category')
+    if (fieldError) return res.status(400).json({ message: fieldError })
+    if (!isPositiveNumber(price)) return res.status(400).json({ message: 'price 必須大於 0' })
+    if (parseInt(maxGuests) < 1) return res.status(400).json({ message: 'maxGuests 至少為 1' })
+
     const listing = await prisma.listing.create({
       data: {
         title, description, price, location, lat, lng, images, maxGuests, category,
@@ -151,8 +158,11 @@ router.put('/:id', authenticate, async (req, res) => {
     // 確認這筆房源是當前登入使用者的，防止別人修改你的房源
     if (listing.hostId !== req.user.id) return res.status(403).json({ message: '無權限修改此房源' })
 
-    // 明確列出允許更新的欄位，避免惡意用戶竄改 hostId 等敏感欄位
     const { title, description, price, location, lat, lng, images, maxGuests, category } = req.body
+
+    // 有傳的欄位才驗證（PUT 允許部分更新）
+    if (price !== undefined && !isPositiveNumber(price)) return res.status(400).json({ message: 'price 必須大於 0' })
+    if (maxGuests !== undefined && parseInt(maxGuests) < 1) return res.status(400).json({ message: 'maxGuests 至少為 1' })
     const updated = await prisma.listing.update({
       where: { id: req.params.id },
       data: { title, description, price, location, lat, lng, images, maxGuests, category },

@@ -9,6 +9,8 @@ import cors from 'cors'  // 允許前端（不同 port）呼叫後端 API
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { existsSync } from 'fs'
+import swaggerUi from 'swagger-ui-express'
+import swaggerSpec from './swagger.js'
 
 // ES Modules 沒有 __dirname，用 import.meta.url 換算
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -35,6 +37,10 @@ app.use('/api', cors({
   },
 }))
 app.use(express.json())   // 讓後端能讀取前端傳來的 JSON 資料 (req.body)
+
+// ── Swagger API 文件 ──
+// 掛在 /api-docs，不走 /api CORS 限制，瀏覽器直接開就能看
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
 
 // ── 路由掛載 ──
 // 當請求 URL 是 /api/auth/... 就交給 authRoutes 處理，以此類推

@@ -10,17 +10,33 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'   // 用來將密碼雜湊（hash），不直接存明文密碼
 import jwt from 'jsonwebtoken'  // 用來產生/驗證 JWT token
+import rateLimit from 'express-rate-limit'
 import prisma from '../utils/prisma.js'
 import { authenticate } from '../middleware/auth.js'
 import { upload, uploadToCloudinary } from '../utils/upload.js'
+import { requireFields, isValidEmail } from '../utils/validate.js'
+
+// 登入限流：同一 IP 15 分鐘內最多嘗試 10 次，防止暴力破解
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { message: '嘗試次數過多，請 15 分鐘後再試' },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
 
 const router = Router()  // 建立子路由，最後 export 給 index.js 掛載
 
 // ── 註冊 ──────────────────────────────────────
 router.post('/register', async (req, res) => {
   try {
-    // req.body 是前端傳來的 JSON 資料
     const { name, email, password } = req.body
+
+    // 驗證必填欄位
+    const fieldError = requireFields(req.body, 'name', 'email', 'password')
+    if (fieldError) return res.status(400).json({ message: fieldError })
+    if (!isValidEmail(email)) return res.status(400).json({ message: 'Email 格式不正確' })
+    if (password.length < 6) return res.status(400).json({ message: '密碼至少需要 6 個字元' })
 
     // 檢查 email 是否已被註冊
     const exists = await prisma.user.findUnique({ where: { email } })
@@ -48,9 +64,13 @@ router.post('/register', async (req, res) => {
 })
 
 // ── 登入 ──────────────────────────────────────
-router.post('/login', async (req, res) => {
+// loginLimiter：同一 IP 15 分鐘內最多 10 次，超過回傳 429
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body
+
+    const fieldError = requireFields(req.body, 'email', 'password')
+    if (fieldError) return res.status(400).json({ message: fieldError })
 
     // 根據 email 查找使用者
     const user = await prisma.user.findUnique({ where: { email } })

@@ -12,21 +12,33 @@
 import { Router } from 'express'
 import prisma from '../utils/prisma.js'
 import { authenticate } from '../middleware/auth.js'
+import { requireFields, isValidDate, isPositiveNumber } from '../utils/validate.js'
 
 const router = Router()
 
-// ── 取得我的訂單 ────────────────────────────────
+// ── 取得我的訂單（支援分頁）──────────────────────
 router.get('/', authenticate, async (req, res) => {
   try {
-    const bookings = await prisma.booking.findMany({
-      where: { guestId: req.user.id },  // 只取當前登入使用者的訂單
-      include: {
-        // 同時帶出房源的基本資訊，讓前端顯示訂單卡片
-        listing: { select: { id: true, title: true, images: true, location: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
-    res.json(bookings)
+    const { page, limit } = req.query
+    const pageNum  = Math.max(1, parseInt(page)  || 1)
+    const limitNum = Math.min(50, parseInt(limit) || 10)
+    const skip     = (pageNum - 1) * limitNum
+
+    // Promise.all 同時查資料和總筆數，用於計算總頁數
+    const [bookings, total] = await Promise.all([
+      prisma.booking.findMany({
+        where: { guestId: req.user.id },
+        include: {
+          listing: { select: { id: true, title: true, images: true, location: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limitNum,
+      }),
+      prisma.booking.count({ where: { guestId: req.user.id } }),
+    ])
+
+    res.json({ bookings, total, page: pageNum, totalPages: Math.ceil(total / limitNum) })
   } catch (err) {
     res.status(500).json({ message: err.message })
   }
@@ -36,6 +48,13 @@ router.get('/', authenticate, async (req, res) => {
 router.post('/', authenticate, async (req, res) => {
   try {
     const { listingId, checkIn, checkOut, totalPrice } = req.body
+
+    // 驗證必填欄位與合法值
+    const fieldError = requireFields(req.body, 'listingId', 'checkIn', 'checkOut', 'totalPrice')
+    if (fieldError) return res.status(400).json({ message: fieldError })
+    if (!isValidDate(checkIn) || !isValidDate(checkOut)) return res.status(400).json({ message: '日期格式不正確' })
+    if (new Date(checkIn) >= new Date(checkOut)) return res.status(400).json({ message: 'checkOut 必須晚於 checkIn' })
+    if (!isPositiveNumber(totalPrice)) return res.status(400).json({ message: 'totalPrice 必須大於 0' })
 
     // 日期衝突檢查：確認同一房源在該時段沒有其他有效訂單
     // 邏輯：「現有訂單的入住日 ≤ 新的退房日」且「現有訂單的退房日 ≥ 新的入住日」= 有重疊
@@ -85,24 +104,32 @@ router.put('/:id', authenticate, async (req, res) => {
   }
 })
 
-// ── 房東：取得我的房源收到的所有訂單 ──────────────
+// ── 房東：取得我的房源收到的所有訂單（支援分頁）──
 // 路由：GET /api/bookings/host
-// 房東需要知道哪些旅客預訂了他的房源
 router.get('/host', authenticate, async (req, res) => {
   try {
-    const bookings = await prisma.booking.findMany({
-      where: {
-        // 透過關聯查詢：找出 hostId 是當前使用者的房源的訂單
-        listing: { hostId: req.user.id },
-      },
-      include: {
-        listing: { select: { id: true, title: true, images: true, location: true } },
-        // 帶出旅客資訊，讓房東知道是誰預訂
-        guest: { select: { id: true, name: true, avatar: true, email: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
-    res.json(bookings)
+    const { page, limit } = req.query
+    const pageNum  = Math.max(1, parseInt(page)  || 1)
+    const limitNum = Math.min(50, parseInt(limit) || 10)
+    const skip     = (pageNum - 1) * limitNum
+
+    const where = { listing: { hostId: req.user.id } }
+
+    const [bookings, total] = await Promise.all([
+      prisma.booking.findMany({
+        where,
+        include: {
+          listing: { select: { id: true, title: true, images: true, location: true } },
+          guest: { select: { id: true, name: true, avatar: true, email: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limitNum,
+      }),
+      prisma.booking.count({ where }),
+    ])
+
+    res.json({ bookings, total, page: pageNum, totalPages: Math.ceil(total / limitNum) })
   } catch (err) {
     res.status(500).json({ message: err.message })
   }

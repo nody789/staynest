@@ -10,6 +10,7 @@
 import { Router } from 'express'
 import prisma from '../utils/prisma.js'
 import { authenticate } from '../middleware/auth.js'
+import { requireFields } from '../utils/validate.js'
 
 const router = Router({ mergeParams: true })  // 繼承上層路由的 URL 參數
 
@@ -37,6 +38,14 @@ router.post('/', authenticate, async (req, res) => {
     const { rating, comment } = req.body
     const listingId = req.params.listingId
     const userId = req.user.id
+
+    // 驗證必填欄位與合法值
+    const fieldError = requireFields(req.body, 'rating', 'comment')
+    if (fieldError) return res.status(400).json({ message: fieldError })
+    const ratingNum = parseInt(rating)
+    if (isNaN(ratingNum) || ratingNum < 1 || ratingNum > 5) {
+      return res.status(400).json({ message: 'rating 必須是 1–5 的整數' })
+    }
 
     // 【驗證 1】防止重複留評：同一個人對同一個房源只能留一次
     // findFirst 找到第一筆符合的資料，沒有則回傳 null

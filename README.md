@@ -6,6 +6,7 @@
 ![CI](https://github.com/nody789/airbnb-clone/actions/workflows/test.yml/badge.svg)
 
 > **Live Demo：** [https://staynest-siy5.onrender.com](https://staynest-siy5.onrender.com)
+> **API 文件（Swagger）：** [https://staynest-siy5.onrender.com/api-docs](https://staynest-siy5.onrender.com/api-docs)
 > **⚠️ 免費方案：** 閒置 15 分鐘後休眠，第一次載入約需 30 秒喚醒
 > **Demo 帳號：** 見下方說明
 
@@ -35,6 +36,33 @@
 - 房源管理（強制下架）
 - 訂單管理（全平台）
 - 評論管理（刪除不當評論）
+
+---
+
+## API 文件
+
+本專案提供互動式 API 文件（Swagger UI），可直接在瀏覽器測試所有 API。
+
+**線上版：** [https://staynest-siy5.onrender.com/api-docs](https://staynest-siy5.onrender.com/api-docs)
+**本機版：** `http://localhost:5000/api-docs`（啟動後端後）
+
+### 使用步驟
+
+1. 打開上方連結
+2. 展開 **認證 → POST /auth/login**，點 **Try it out**
+3. 填入 Demo 帳號（見下方），按 **Execute**，從回應複製 `token`
+4. 點右上角 **Authorize 🔓**，貼上 token
+5. 即可測試所有需要登入的 API（顯示 🔒 的端點）
+
+### 涵蓋端點
+
+| 分類 | 功能 |
+|------|------|
+| 認證 | 註冊、登入、取得個人資料、修改密碼、上傳頭像 |
+| 房源 | 列表（搜尋/篩選/分頁）、詳情、新增、編輯、刪除、圖片上傳 |
+| 訂房 | 建立訂單、查看訂單、取消、房東確認/拒絕 |
+| 評論 | 查詢、新增（限完成入住後）|
+| 收藏 | 查詢、新增、移除 |
 
 ---
 
