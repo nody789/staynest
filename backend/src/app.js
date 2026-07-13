@@ -29,7 +29,12 @@ const app = express()
 app.set('trust proxy', 1)
 
 // CORS 只套在 /api 路由
-const allowedOrigins = ['http://localhost:5173']
+// 正式環境：前後端同網域，瀏覽器 POST 仍會帶 Origin header，需要明確允許
+// PRODUCTION_URL 環境變數可在 Render 設定，預設 fallback 到目前的 Render URL
+const allowedOrigins = [
+  'http://localhost:5173',
+  process.env.PRODUCTION_URL || 'https://staynest-siy5.onrender.com',
+]
 app.use('/api', cors({
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
