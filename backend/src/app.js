@@ -24,6 +24,10 @@ import adminRoutes from './routes/admin.js'
 
 const app = express()
 
+// Render 等雲端平台使用反向代理（Nginx），必須信任 X-Forwarded-For header
+// 否則 req.ip 永遠是內部 proxy IP，rate limiter 會把所有使用者當同一個 IP
+app.set('trust proxy', 1)
+
 // CORS 只套在 /api 路由
 const allowedOrigins = ['http://localhost:5173']
 app.use('/api', cors({

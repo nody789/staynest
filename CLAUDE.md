@@ -68,7 +68,7 @@
 * **`useEffect`**（盡量避免，改用 React Query）：若使用，說明副作用的觸發時機與目的
 * **`useCallback` / `useMemo`**：說明為什麼需要快取，避免什麼問題
 * **`useQuery` / `useMutation`**：說明在打哪個 API、資料的用途
-* **Zustand store**：每個 state 和 action 都說明用途
+* **Redux store**：每個 state 和 action 都說明用途，說明為何放全域
 * **Props**：複雜的 props 說明從哪裡傳入、代表什麼意思
 * **條件渲染**：說明判斷條件背後的商業邏輯
 
@@ -171,9 +171,11 @@ const [email, setEmail] = useState('')
 
 ## 全域狀態管理
 
-本專案使用 **Zustand** 管理全域狀態（例如：登入使用者資訊、UI 狀態）。
+本專案使用 **Redux Toolkit** 管理全域狀態（例如：登入使用者資訊）。
+> 原本用 Zustand，後來開分支改寫成 Redux 做學習對比，目前 main 全面使用 Redux。
+> 詳細說明見 `docs/REDUX_GUIDE.md`。
 
-### useState / useEffect / useQuery / Zustand 的關聯與選擇
+### useState / useEffect / useQuery / Redux 的關聯與選擇
 
 這四個工具各管不同類型的狀態，不是競爭關係：
 
@@ -182,7 +184,7 @@ const [email, setEmail] = useState('')
 | `useState` | 元件內部的本地狀態 | 只有這個元件自己需要的資料（輸入框值、toggle 開關） |
 | `useEffect` | 元件掛載/更新後的副作用 | 監聽事件、計時器、DOM 操作（不要用來抓 API） |
 | `useQuery` | 來自伺服器的資料 | 所有 API 請求，自動處理 loading / error / cache |
-| `Zustand` | 多元件共享的全域狀態 | 登入使用者、跨頁需要保留的資料 |
+| `Redux` | 多元件共享的全域狀態 | 登入使用者、跨頁需要保留的資料 |
 
 **判斷流程：**
 ```
@@ -190,47 +192,51 @@ const [email, setEmail] = useState('')
   → YES → useQuery
   → NO  → 只有這個元件需要？
              → YES → useState
-             → NO（多個元件/頁面都要用）→ Zustand
+             → NO（多個元件/頁面都要用）→ Redux（useSelector）
 ```
 
 **本專案實際例子：**
 - 搜尋框輸入值 → `useState`（只有搜尋列需要）
 - 房源列表 → `useQuery`（從 API 抓，自動 cache）
-- 已登入的使用者 → `Zustand`（所有頁面都需要知道「我是誰」）
+- 已登入的使用者 → `Redux`（所有頁面都需要知道「我是誰」）
 - Modal 開關 → `useState`（只有這個元件需要）
 
-### Zustand 備註規範
+### Redux 備註規範
 
-Zustand store 程式碼請加入中文備註：
+Redux 相關程式碼請加入中文備註：
 
-* **store 頂部**：說明這個 store 負責管理哪些全域狀態
+* **Slice 頂部**：說明這個 slice 負責管理哪些全域狀態
 * **每個 state 欄位**：說明存什麼資料、初始值為何
-* **每個 action（函式）**：說明觸發時機、做什麼事、會影響哪些 state
-* **從元件使用 store 時**：說明「為什麼這個資料要放全域而不是 useState」
+* **每個 reducer**：說明觸發時機、做什麼事、action.payload 是什麼
+* **從元件使用時**：說明「為什麼這個資料要放 Redux 而不是 useState」
 
-### Zustand vs Redux 比較
+### Redux 在元件裡的使用方式
 
-| | Zustand | Redux |
+```jsx
+import { useSelector, useDispatch } from 'react-redux'
+import { setAuth, logout, setUser } from '../store/authSlice'
+
+// 讀取 state
+const user = useSelector(state => state.auth.user)
+
+// 更新 state（透過 dispatch 發送 action）
+const dispatch = useDispatch()
+dispatch(setAuth({ user, token }))   // 登入
+dispatch(logout())                    // 登出
+dispatch(setUser(userData))           // 更新使用者資料
+```
+
+### Redux vs Zustand 比較（學習用）
+
+| | Redux Toolkit | Zustand |
 |---|---|---|
-| 程式碼量 | 少，直接定義 state + action | 多，需要 action / reducer / store 分開寫 |
-| 學習曲線 | 低，語法直覺 | 高，概念較多 |
-| 適合規模 | 小～中型專案 | 大型專案、多人團隊 |
-| 樣板程式碼 | 幾乎沒有 | 很多（boilerplate） |
-| DevTools | 支援 | Redux DevTools 功能更完整 |
+| 程式碼量 | 多一些（slice + store + Provider） | 少，一個檔案搞定 |
+| 學習曲線 | 中（需理解 action/reducer/dispatch） | 低，語法直覺 |
+| 適合規模 | 中～大型專案 | 小～中型專案 |
+| DevTools | Redux DevTools 功能完整 | 基本支援 |
+| 台灣業界 | 較多（特別是有年份的專案） | 較多（新專案） |
 
-### 本專案選 Zustand 的原因
-
-這是中小型學習專案，Zustand 語法更簡潔，可以專注在功能邏輯而不是框架規則。
-
-### 何時才考慮 Redux？
-
-* 超大型應用，多個團隊同時開發
-* 公司已有 Redux 技術棧
-* 需要嚴格的 time-travel debugging（逐步回放狀態變化）
-
-### 學習建議
-
-先掌握 Zustand → 之後可以把同一個專案改寫成 Redux 對比，效果最好。
+> Zustand 版本保留在 `src/stores/authStore.js`，僅供對比參考，已不再使用。
 
 ---
 
@@ -338,7 +344,7 @@ Zustand store 程式碼請加入中文備註：
 | JWT 處理 | jsonwebtoken |
 | 前端 HTTP 請求 | axios（封裝在 `services/api.js`） |
 | 伺服器狀態快取 | @tanstack/react-query |
-| 全域狀態 | Zustand |
+| 全域狀態 | Redux Toolkit（@reduxjs/toolkit + react-redux） |
 | 地圖 | Leaflet + React Leaflet |
 | 圖片儲存 | Cloudinary（multer 上傳） |
 | 測試 | Vitest + @testing-library/react |

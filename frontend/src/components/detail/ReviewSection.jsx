@@ -14,12 +14,12 @@
 
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSelector } from 'react-redux'
 import { createReview, getBookings } from '../../services/api'
-import useAuthStore from '../../stores/authStore'
 
 function ReviewSection({ listingId, reviews = [], avgRating }) {
-  // useAuthStore：從 Zustand 取得目前登入的使用者
-  const { user } = useAuthStore()
+  // 從 Redux store 取得目前登入的使用者（與整個 App 共用同一個 store）
+  const user = useSelector(state => state.auth.user)
   const queryClient = useQueryClient()
 
   // 新增評論的表單狀態

@@ -1,10 +1,14 @@
 // ─────────────────────────────────────────────
-// 認證狀態管理 (Zustand Store)
+// 【保留參考用，已不再使用】
+// 這是 Zustand 版本的認證狀態管理，
+// 目前專案已改用 Redux Toolkit（src/store/authSlice.js）。
+// 保留此檔案供 Zustand vs Redux 語法對比學習用。
+// 詳細對比說明見 docs/REDUX_GUIDE.md
 // ─────────────────────────────────────────────
 // Zustand 是輕量的全域狀態管理工具
 // 概念類似 useState，但可以在任何元件取用，不需要 props 傳遞
 //
-// 使用方式：
+// 使用方式（已改用 Redux，這只是參考）：
 //   const { user, setUser, logout } = useAuthStore()
 
 import { create } from 'zustand'

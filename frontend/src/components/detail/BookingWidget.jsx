@@ -10,16 +10,16 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSelector } from 'react-redux'
 import { createBooking, getBookedDates } from '../../services/api'
-import useAuthStore from '../../stores/authStore'
 
 function BookingWidget({ listing }) {
   const [checkIn, setCheckIn] = useState('')
   const [checkOut, setCheckOut] = useState('')
   const [message, setMessage] = useState('')   // 成功或錯誤訊息
 
-  // 從 Zustand store 取得登入使用者
-  const { user } = useAuthStore()
+  // 從 Redux store 取得登入使用者（與 LoginPage / Navbar 共用同一個 store）
+  const user = useSelector(state => state.auth.user)
 
   // ── 取得這個房源已被預訂的日期範圍 ─────────────
   // 用途：顯示給使用者看哪些日期不可選，以及在送出前做前端驗證
