@@ -33,7 +33,7 @@ function BookingsPage() {
   // 取得我的訂單列表
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['bookings'],
-    queryFn: () => getBookings().then((res) => res.data),
+    queryFn: () => getBookings().then((res) => res.data.bookings),
   })
 
   // 取消訂單的 mutation
