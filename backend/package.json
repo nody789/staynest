@@ -8,6 +8,7 @@
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "seed": "node src/seed.js",
+    "add-bookings": "node src/add-demo-bookings.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },
