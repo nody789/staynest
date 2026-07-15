@@ -32,7 +32,7 @@ function ReviewSection({ listingId, reviews = [], avgRating }) {
   // 用途：判斷這個使用者是否有完成入住紀錄
   const { data: bookings = [] } = useQuery({
     queryKey: ['bookings'],
-    queryFn: () => getBookings().then(res => res.data),
+    queryFn: () => getBookings().then(res => res.data.bookings),
     enabled: !!user,
   })
 
