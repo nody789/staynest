@@ -20,7 +20,7 @@ function HostBookingsPage() {
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['host-bookings'],
-    queryFn: () => getHostBookings().then((res) => res.data.bookings),
+    queryFn: () => getHostBookings().then((res) => res.data.bookings ?? []),
   })
 
   const { mutate: action, isPending } = useMutation({
