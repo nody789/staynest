@@ -12,6 +12,7 @@ import EditListingPage from './pages/EditListingPage'
 import HostBookingsPage from './pages/HostBookingsPage'
 import ProfilePage from './pages/ProfilePage'
 import NotFoundPage from './pages/NotFoundPage'
+import OAuthCallbackPage from './pages/OAuthCallbackPage'
 import PrivateRoute from './components/PrivateRoute'
 import AdminRoute from './components/AdminRoute'
 import AdminLoginPage from './pages/admin/AdminLoginPage'
@@ -45,6 +46,8 @@ function App() {
                 <Route path="/listings/:id" element={<ListingDetailPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
+                {/* OAuth 登入後的回調頁面（讀取 ?token 並更新 Redux） */}
+                <Route path="/auth/callback" element={<OAuthCallbackPage />} />
 
                 <Route element={<PrivateRoute />}>
                   <Route path="/profile" element={<ProfilePage />} />

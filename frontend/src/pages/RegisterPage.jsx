@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
+import { Helmet } from 'react-helmet-async'
 import { setAuth } from '../store/authSlice'
 import { register } from '../services/api'
 
@@ -41,6 +42,11 @@ function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <Helmet>
+        <title>註冊帳號 — StayNest</title>
+        <meta name="description" content="免費加入 StayNest，預訂全台海景、山景、豪宅等各類優質住宿。" />
+      </Helmet>
+
       <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md">
 
         <h1 className="text-2xl font-semibold text-gray-900 mb-2">建立帳號</h1>

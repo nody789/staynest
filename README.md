@@ -15,6 +15,7 @@
 ## 功能總覽
 
 ### 一般旅客
+- 使用 Google、LINE、Facebook 一鍵登入（OAuth 2.0）
 - 瀏覽 28 筆房源（7 種分類：海景、山景、市中心、農村、豪宅、獨特住宿、島嶼）
 - 依地點、人數、分類篩選房源
 - Leaflet 互動地圖顯示房源位置
@@ -77,7 +78,7 @@
 | 樣式 | Tailwind CSS | 3 |
 | 路由 | React Router DOM | 7 |
 | 伺服器狀態 | @tanstack/react-query | 5 |
-| 全域狀態 | Zustand | 5 |
+| 全域狀態 | Redux Toolkit | 2 |
 | 地圖 | Leaflet + React Leaflet | — |
 | HTTP | Axios（JWT interceptor） | — |
 | 測試 | Vitest + @testing-library/react | — |
@@ -180,7 +181,7 @@ if (!completedBooking) return res.status(403).json({ message: '只有完成入�
 | 狀態類型 | 工具 | 理由 |
 |---------|------|------|
 | 伺服器資料（房源、訂單）| React Query | 自動 cache、loading、error，避免重複請求 |
-| Client 端全域（登入者）| Zustand | 輕量、不需 Provider |
+| Client 端全域（登入者）| Redux Toolkit | 完整 DevTools、action 可追蹤 |
 
 ### 4. Admin 角色隔離
 
@@ -193,7 +194,8 @@ if (!completedBooking) return res.status(403).json({ message: '只有完成入�
 
 ```
 User
-  id, name, email, password, avatar
+  id, name, email, password（OAuth 使用者為 null）, avatar
+  provider（"local" | "google" | "line" | "facebook"）, providerId
   isHost（房東模式）, isActive（帳號狀態）, role（USER / ADMIN）
   → Listing[], Booking[], Review[], Favorite[]
 
@@ -269,6 +271,8 @@ GitHub Actions 在每次 push to main 時自動執行。
 ## 未來規劃
 
 - [ ] Calendar 標示已佔用日期
-- [ ] 房源列表分頁
-- [ ] 使用者頭像 Cloudinary 上傳
+- [x] 房源列表分頁
+- [x] 使用者頭像 Cloudinary 上傳
+- [x] Google / LINE / Facebook 社群登入（OAuth 2.0）
+- [x] SEO 優化（react-helmet-async 動態 meta / OG tags）
 - [ ] Email 通知（SendGrid）

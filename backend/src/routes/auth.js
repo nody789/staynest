@@ -185,4 +185,247 @@ router.patch('/password', authenticate, async (req, res) => {
   }
 })
 
+// ── Google OAuth ───────────────────────────────
+// 【OAuth 2.0 流程說明】
+// 1. 使用者點「Google 登入」→ 前端導到 /api/auth/google
+// 2. 後端組出 Google 授權 URL → 瀏覽器跳到 Google 頁面
+// 3. 使用者同意 → Google 把 code 帶回 /api/auth/google/callback
+// 4. 後端用 code 換 access_token → 用 token 取得使用者資料
+// 5. 查 DB 有無此使用者：有則登入，無則建立新帳號
+// 6. 產生 JWT → redirect 到前端（帶上 token）
+router.get('/google', (req, res) => {
+  // 組出 Google OAuth 授權 URL
+  const params = new URLSearchParams({
+    client_id: process.env.GOOGLE_CLIENT_ID,
+    redirect_uri: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/google/callback`,
+    response_type: 'code',
+    scope: 'openid email profile', // 要求取得 email 和基本個人資料
+    access_type: 'offline',
+  })
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`)
+})
+
+router.get('/google/callback', async (req, res) => {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+  try {
+    const { code } = req.query
+    if (!code) return res.redirect(`${frontendUrl}/login?error=oauth_failed`)
+
+    // Step 1：用 code 換 access_token
+    // 這是 OAuth 2.0 的「授權碼交換」步驟，code 只能用一次
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/google/callback`,
+        grant_type: 'authorization_code',
+      }),
+    })
+    const tokenData = await tokenRes.json()
+    if (!tokenData.access_token) return res.redirect(`${frontendUrl}/login?error=oauth_failed`)
+
+    // Step 2：用 access_token 取得 Google 使用者資料
+    const profileRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    })
+    const profile = await profileRes.json()
+
+    // Step 3：查 DB 或建立使用者
+    // 優先查 Google ID，其次查 email（處理已有本地帳號的情況）
+    let user = await prisma.user.findFirst({
+      where: { OR: [
+        { provider: 'google', providerId: profile.id },
+        { email: profile.email },
+      ]},
+    })
+
+    if (!user) {
+      // 第一次用 Google 登入：建立新帳號（無密碼）
+      user = await prisma.user.create({
+        data: {
+          name: profile.name,
+          email: profile.email,
+          avatar: profile.picture,
+          provider: 'google',
+          providerId: profile.id,
+        },
+      })
+    } else if (user.provider === 'local') {
+      // 已有本地帳號，自動綁定 Google（下次可用 Google 登入）
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { provider: 'google', providerId: profile.id },
+      })
+    }
+
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' })
+    // redirect 到前端的 /auth/callback，帶上 JWT token
+    res.redirect(`${frontendUrl}/auth/callback?token=${token}`)
+  } catch (err) {
+    res.redirect(`${frontendUrl}/login?error=oauth_failed`)
+  }
+})
+
+// ── LINE OAuth ─────────────────────────────────
+// LINE Login 流程與 Google 相同（標準 OAuth 2.0）
+// 差異：LINE profile API 不一定提供 email（需申請 email permission）
+router.get('/line', (req, res) => {
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: process.env.LINE_CHANNEL_ID,
+    redirect_uri: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/line/callback`,
+    state: 'staynest_oauth', // 防 CSRF 用，正式環境建議用隨機值
+    scope: 'profile openid email',
+  })
+  res.redirect(`https://access.line.me/oauth2/v2.1/authorize?${params}`)
+})
+
+router.get('/line/callback', async (req, res) => {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+  try {
+    const { code } = req.query
+    if (!code) return res.redirect(`${frontendUrl}/login?error=oauth_failed`)
+
+    // Step 1：用 code 換 access_token
+    const tokenRes = await fetch('https://api.line.me/oauth2/v2.1/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/line/callback`,
+        client_id: process.env.LINE_CHANNEL_ID,
+        client_secret: process.env.LINE_CHANNEL_SECRET,
+      }),
+    })
+    const tokenData = await tokenRes.json()
+    if (!tokenData.access_token) return res.redirect(`${frontendUrl}/login?error=oauth_failed`)
+
+    // Step 2：取得 LINE 使用者資料（displayName, userId, pictureUrl）
+    const profileRes = await fetch('https://api.line.me/v2/profile', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    })
+    const profile = await profileRes.json()
+
+    // LINE email 需要額外申請，不一定有，用 placeholder 補足
+    // id_token 裡有 email（若 scope 包含 openid email 且使用者同意）
+    let email = null
+    if (tokenData.id_token) {
+      try {
+        // id_token 是 JWT，不驗簽只取 payload（學習用途）
+        const payload = JSON.parse(Buffer.from(tokenData.id_token.split('.')[1], 'base64').toString())
+        email = payload.email || null
+      } catch { /* ignore */ }
+    }
+    // 若 LINE 沒給 email，建立一個佔位 email（不對外顯示）
+    if (!email) email = `line_${profile.userId}@noreply.staynest`
+
+    // Step 3：查 DB 或建立使用者
+    let user = await prisma.user.findFirst({
+      where: { OR: [
+        { provider: 'line', providerId: profile.userId },
+        { email },
+      ]},
+    })
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          name: profile.displayName,
+          email,
+          avatar: profile.pictureUrl || null,
+          provider: 'line',
+          providerId: profile.userId,
+        },
+      })
+    } else if (user.provider === 'local') {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { provider: 'line', providerId: profile.userId },
+      })
+    }
+
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' })
+    res.redirect(`${frontendUrl}/auth/callback?token=${token}`)
+  } catch (err) {
+    res.redirect(`${frontendUrl}/login?error=oauth_failed`)
+  }
+})
+
+// ── Facebook OAuth ──────────────────────────────
+// Facebook 使用 OAuth 2.0，流程與 Google 相同
+// 差異：需在 Meta for Developers 申請 app 並取得 App ID / App Secret
+router.get('/facebook', (req, res) => {
+  const params = new URLSearchParams({
+    client_id: process.env.FACEBOOK_APP_ID,
+    redirect_uri: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/facebook/callback`,
+    scope: 'email,public_profile',
+    response_type: 'code',
+  })
+  res.redirect(`https://www.facebook.com/v18.0/dialog/oauth?${params}`)
+})
+
+router.get('/facebook/callback', async (req, res) => {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+  try {
+    const { code } = req.query
+    if (!code) return res.redirect(`${frontendUrl}/login?error=oauth_failed`)
+
+    // Step 1：用 code 換 access_token
+    const tokenRes = await fetch(
+      `https://graph.facebook.com/v18.0/oauth/access_token?` +
+      new URLSearchParams({
+        client_id: process.env.FACEBOOK_APP_ID,
+        client_secret: process.env.FACEBOOK_APP_SECRET,
+        redirect_uri: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/facebook/callback`,
+        code,
+      })
+    )
+    const tokenData = await tokenRes.json()
+    if (!tokenData.access_token) return res.redirect(`${frontendUrl}/login?error=oauth_failed`)
+
+    // Step 2：用 access_token 取得 Facebook 使用者資料（id, name, email, picture）
+    const profileRes = await fetch(
+      `https://graph.facebook.com/v18.0/me?fields=id,name,email,picture&access_token=${tokenData.access_token}`
+    )
+    const profile = await profileRes.json()
+
+    // Facebook 不一定提供 email（使用者可拒絕授權），用 placeholder 補足
+    const email = profile.email || `fb_${profile.id}@noreply.staynest`
+
+    // Step 3：查 DB 或建立使用者
+    let user = await prisma.user.findFirst({
+      where: { OR: [
+        { provider: 'facebook', providerId: profile.id },
+        { email },
+      ]},
+    })
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          name: profile.name,
+          email,
+          avatar: profile.picture?.data?.url || null,
+          provider: 'facebook',
+          providerId: profile.id,
+        },
+      })
+    } else if (user.provider === 'local') {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { provider: 'facebook', providerId: profile.id },
+      })
+    }
+
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' })
+    res.redirect(`${frontendUrl}/auth/callback?token=${token}`)
+  } catch (err) {
+    res.redirect(`${frontendUrl}/login?error=oauth_failed`)
+  }
+})
+
 export default router

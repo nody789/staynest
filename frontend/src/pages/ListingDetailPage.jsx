@@ -8,6 +8,7 @@
 
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { Helmet } from 'react-helmet-async'
 import { getListing } from '../services/api'
 import ImageGallery from '../components/detail/ImageGallery'
 import BookingWidget from '../components/detail/BookingWidget'
@@ -37,8 +38,23 @@ function ListingDetailPage() {
     ? (listing.reviews.reduce((sum, r) => sum + r.rating, 0) / listing.reviews.length).toFixed(1)
     : null
 
+  // 第一張圖作為 OG 分享圖片（讓 LINE/Facebook 預覽卡片顯示房源照片）
+  const ogImage = listing.images?.[0] || ''
+  const description = `${listing.location} · 最多 ${listing.maxGuests} 位旅客 · NT$${listing.price}/晚`
+
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
+
+      {/* Helmet：每個房源頁面有獨立的 title 和 OG 圖片
+          og:image 讓使用者把連結貼到 LINE/Facebook 時顯示房源照片 */}
+      <Helmet>
+        <title>{listing.title} — StayNest</title>
+        <meta name="description" content={description} />
+        <meta property="og:title" content={`${listing.title} — StayNest`} />
+        <meta property="og:description" content={description} />
+        <meta property="og:image" content={ogImage} />
+        <meta property="og:type" content="website" />
+      </Helmet>
 
       {/* ── 標題區 ── */}
       <h1 className="text-2xl font-semibold text-gray-900 mb-1">{listing.title}</h1>

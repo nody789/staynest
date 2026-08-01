@@ -12,6 +12,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { Helmet } from 'react-helmet-async'
 import { getListings } from '../services/api'
 import ListingCard from '../components/ListingCard'
 import SearchBar from '../components/SearchBar'
@@ -76,8 +77,24 @@ function HomePage() {
   const totalPages  = data?.totalPages  ?? 1
   const total       = data?.total       ?? 0
 
+  // 根據篩選條件動態產生 title（讓分享連結有意義）
+  const pageTitle = filters.location
+    ? `${filters.location} 的住宿 — StayNest`
+    : filters.category
+    ? `${filters.category}住宿 — StayNest`
+    : 'StayNest — 瀏覽全台優質住宿'
+
   return (
     <div className="max-w-7xl mx-auto px-6 py-6">
+
+      {/* Helmet：動態設定 <title> 和 <meta>，讓搜尋引擎和社群分享取得正確資訊 */}
+      <Helmet>
+        <title>{pageTitle}</title>
+        <meta name="description" content="瀏覽、搜尋、預訂全台海景、山景、豪宅等各類優質住宿，找到最適合你的旅行體驗。" />
+        <meta property="og:title" content={pageTitle} />
+        <meta property="og:description" content="StayNest — 全台優質住宿預訂平台，海景、山景、市區任你選。" />
+        <meta property="og:type" content="website" />
+      </Helmet>
 
       {/* 搜尋列（手機版，桌機版已在 Navbar 裡） */}
       <div className="md:hidden mb-6">

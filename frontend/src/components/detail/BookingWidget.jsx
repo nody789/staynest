@@ -2,57 +2,83 @@
 // 訂房 Widget（右側固定欄）
 // ─────────────────────────────────────────────
 // 功能：
-//   1. 選擇入住/退房日期
-//   2. 自動計算總價
-//   3. 送出訂房請求
-//   4. 未登入時提示前往登入
+//   1. 用 DayPicker 視覺日曆選擇入住/退房日期
+//   2. 已佔用日期標灰無法選取
+//   3. 自動計算總價
+//   4. 送出訂房請求
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSelector } from 'react-redux'
+import { DayPicker } from 'react-day-picker'
 import { createBooking, getBookedDates } from '../../services/api'
 
+// 將 Date 物件格式化成 "yyyy-MM-dd" 字串（API 送出用）
+function toDateString(date) {
+  if (!date) return ''
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 function BookingWidget({ listing }) {
-  const [checkIn, setCheckIn] = useState('')
-  const [checkOut, setCheckOut] = useState('')
-  const [message, setMessage] = useState('')   // 成功或錯誤訊息
+  // range：DayPicker range 模式的選取結果，格式為 { from: Date | undefined, to: Date | undefined }
+  const [range, setRange] = useState(undefined)
+  const [message, setMessage] = useState('')
 
-  // 從 Redux store 取得登入使用者（與 LoginPage / Navbar 共用同一個 store）
+  // 從 range 推導出 API 送出用的日期字串
+  const checkIn  = toDateString(range?.from)
+  const checkOut = toDateString(range?.to)
+
+  // 從 Redux store 取得登入使用者
   const user = useSelector(state => state.auth.user)
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
-  // ── 取得這個房源已被預訂的日期範圍 ─────────────
-  // 用途：顯示給使用者看哪些日期不可選，以及在送出前做前端驗證
-  // staleTime：5 分鐘內不重新請求（訂房不會太頻繁變動）
+  // ── 取得已預訂的日期範圍 ─────────────────────
+  // 用途：傳給 DayPicker 的 disabled prop，讓已佔用日期無法點選（視覺標灰）
   const { data: bookedPeriods = [] } = useQuery({
     queryKey: ['booked-dates', listing.id],
     queryFn: () => getBookedDates(listing.id).then(res => res.data),
     staleTime: 1000 * 60 * 5,
   })
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()  // 用來讓某個快取失效（觸發重新請求）
 
-  // 計算天數：兩個日期相減，轉成天數
-  const nights = checkIn && checkOut
-    ? Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24))
+  // ── 把已預訂期間轉成 DayPicker 的 disabled 格式 ──
+  // DayPicker disabled 接受陣列，每個元素可以是：
+  //   { before: Date }        → 這個日期之前都 disabled
+  //   { from: Date, to: Date } → 這個範圍內都 disabled
+  const disabledDays = [
+    { before: new Date() }, // 過去日期無法選
+    ...bookedPeriods.map(p => ({
+      from: new Date(p.checkIn),
+      to:   new Date(p.checkOut),
+    })),
+  ]
+
+  // 計算天數
+  const nights = range?.from && range?.to
+    ? Math.ceil((range.to - range.from) / (1000 * 60 * 60 * 24))
     : 0
 
-  // 服務費（模擬 Airbnb 的服務費，約 15%）
   const serviceFee = nights > 0 ? Math.round(listing.price * nights * 0.15) : 0
   const totalPrice = nights > 0 ? listing.price * nights + serviceFee : 0
 
-  // useMutation：處理 POST/PUT/DELETE 等會改變資料的請求
-  //   mutate(data)   → 觸發請求
-  //   isPending      → 請求中
-  //   onSuccess      → 成功後執行
-  //   onError        → 失敗後執行
+  // 衝突檢查（後端也會再驗一次，這裡提前告知）
+  const hasDateConflict = (start, end) => {
+    return bookedPeriods.some(period => {
+      const bookedStart = new Date(period.checkIn)
+      const bookedEnd   = new Date(period.checkOut)
+      return new Date(start) < bookedEnd && new Date(end) > bookedStart
+    })
+  }
+
   const { mutate: book, isPending } = useMutation({
     mutationFn: (data) => createBooking(data),
     onSuccess: () => {
       setMessage('訂房成功！')
-      setCheckIn('')
-      setCheckOut('')
-      // 讓訂單列表快取失效，下次進訂單頁時會重新請求最新資料
+      setRange(undefined)
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
     },
     onError: (err) => {
@@ -60,59 +86,31 @@ function BookingWidget({ listing }) {
     },
   })
 
-  // ── 檢查選擇的日期是否與已預訂期間衝突 ──────────
-  // 兩個日期區間重疊的條件：A.start < B.end 且 A.end > B.start
-  const hasDateConflict = (start, end) => {
-    return bookedPeriods.some(period => {
-      const bookedStart = new Date(period.checkIn)
-      const bookedEnd = new Date(period.checkOut)
-      return new Date(start) < bookedEnd && new Date(end) > bookedStart
-    })
-  }
-
   const handleSubmit = (e) => {
     e.preventDefault()
     setMessage('')
 
-    // 未登入時跳轉到登入頁
     if (!user) {
       navigate('/login')
       return
     }
-
     if (nights <= 0) {
-      setMessage('退房日期必須晚於入住日期')
+      setMessage('請選擇入住和退房日期')
       return
     }
-
-    // 前端先驗證日期衝突（後端也會再驗一次，這裡只是提前告知使用者）
     if (hasDateConflict(checkIn, checkOut)) {
       setMessage('此期間已有其他旅客預訂，請重新選擇日期')
       return
     }
 
-    book({
-      listingId: listing.id,
-      checkIn,
-      checkOut,
-      totalPrice,
-    })
-  }
-
-  // 今天的日期（input[type=date] 的 min 值，不能選過去的日期）
-  const today = new Date().toISOString().split('T')[0]
-
-  // 格式化日期顯示用：2024-01-15 → 1/15
-  const formatDate = (iso) => {
-    const d = new Date(iso)
-    return `${d.getMonth() + 1}/${d.getDate()}`
+    book({ listingId: listing.id, checkIn, checkOut, totalPrice })
   }
 
   return (
     <div className="border border-gray-300 rounded-2xl p-6 shadow-lg">
 
       {/* 價格 */}
-      <div className="flex items-baseline gap-1 mb-6">
+      <div className="flex items-baseline gap-1 mb-4">
         <span className="text-2xl font-semibold text-gray-900">
           NT$ {listing.price.toLocaleString()}
         </span>
@@ -121,46 +119,44 @@ function BookingWidget({ listing }) {
 
       <form onSubmit={handleSubmit}>
 
-        {/* 日期選擇 */}
-        <div className="border border-gray-300 rounded-xl overflow-hidden mb-4">
-          <div className="grid grid-cols-2 divide-x divide-gray-300">
-            <div className="p-3">
-              <label className="block text-xs font-bold text-gray-700 mb-1">入住</label>
-              <input
-                type="date"
-                value={checkIn}
-                min={today}
-                onChange={(e) => {
-                  setCheckIn(e.target.value)
-                  // 如果退房日期早於新的入住日期，清除退房日期
-                  if (checkOut && e.target.value >= checkOut) setCheckOut('')
-                }}
-                className="w-full text-sm text-gray-900 focus:outline-none"
-              />
-            </div>
-            <div className="p-3">
-              <label className="block text-xs font-bold text-gray-700 mb-1">退房</label>
-              <input
-                type="date"
-                value={checkOut}
-                min={checkIn || today}  // 退房至少要在入住日之後
-                onChange={(e) => setCheckOut(e.target.value)}
-                className="w-full text-sm text-gray-900 focus:outline-none"
-              />
-            </div>
+        {/* ── 日曆選擇器 ─────────────────────────
+            DayPicker mode="range"：拖曳或點兩下選取入住→退房範圍
+            disabled：已佔用日期和過去日期會標灰、無法點選
+            selected：目前選取的範圍（高亮顯示）
+            onSelect：使用者改變選取時觸發 */}
+        <div className="mb-4 flex justify-center">
+          <div
+            className="rounded-xl overflow-hidden border border-gray-200"
+            style={{
+              // 覆蓋 DayPicker 的主色，改成專案的 rose-500
+              '--rdp-accent-color': '#f43f5e',
+              '--rdp-accent-background-color': '#ffe4e6',
+            }}
+          >
+            <DayPicker
+              mode="range"
+              selected={range}
+              onSelect={setRange}
+              disabled={disabledDays}
+              numberOfMonths={1}
+            />
           </div>
         </div>
 
-        {/* 已佔用日期提示（有預訂紀錄才顯示） */}
-        {bookedPeriods.length > 0 && (
-          <div className="mb-4 text-xs text-gray-500">
-            <p className="font-medium mb-1">已預訂期間（不可選）：</p>
-            <div className="flex flex-wrap gap-1">
-              {bookedPeriods.map((p, i) => (
-                <span key={i} className="bg-gray-100 rounded px-2 py-0.5">
-                  {formatDate(p.checkIn)} – {formatDate(p.checkOut)}
-                </span>
-              ))}
+        {/* 已選日期顯示 */}
+        {(range?.from || range?.to) && (
+          <div className="flex gap-2 mb-4">
+            <div className="flex-1 border border-gray-300 rounded-xl p-3">
+              <p className="text-xs font-bold text-gray-700 mb-1">入住</p>
+              <p className="text-sm text-gray-900">
+                {range?.from ? range.from.toLocaleDateString('zh-TW') : '—'}
+              </p>
+            </div>
+            <div className="flex-1 border border-gray-300 rounded-xl p-3">
+              <p className="text-xs font-bold text-gray-700 mb-1">退房</p>
+              <p className="text-sm text-gray-900">
+                {range?.to ? range.to.toLocaleDateString('zh-TW') : '請選擇'}
+              </p>
             </div>
           </div>
         )}
@@ -175,14 +171,14 @@ function BookingWidget({ listing }) {
         </button>
       </form>
 
-      {/* 訊息（成功或錯誤） */}
+      {/* 訊息 */}
       {message && (
         <p className={`text-sm text-center mt-3 ${message.includes('成功') ? 'text-green-600' : 'text-red-500'}`}>
           {message}
         </p>
       )}
 
-      {/* 費用明細（選好日期才顯示） */}
+      {/* 費用明細 */}
       {nights > 0 && (
         <div className="mt-6 space-y-3 text-sm">
           <div className="flex justify-between text-gray-700">
@@ -193,7 +189,6 @@ function BookingWidget({ listing }) {
             <span>服務費</span>
             <span>NT$ {serviceFee.toLocaleString()}</span>
           </div>
-          {/* border-t：上方加分隔線 */}
           <div className="flex justify-between font-semibold text-gray-900 pt-3 border-t border-gray-200">
             <span>總計</span>
             <span>NT$ {totalPrice.toLocaleString()}</span>
@@ -201,9 +196,7 @@ function BookingWidget({ listing }) {
         </div>
       )}
 
-      {/* 提示文字 */}
       <p className="text-xs text-center text-gray-400 mt-4">尚未收費，確認後才計費</p>
-
     </div>
   )
 }

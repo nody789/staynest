@@ -9,15 +9,17 @@ datasource db {
 }
 
 model User {
-  id        String    @id @default(uuid())
-  name      String
-  email     String    @unique
-  password  String
-  avatar    String?
-  isHost    Boolean   @default(false)
-  isActive  Boolean   @default(true)
-  role      Role      @default(USER)
-  createdAt DateTime  @default(now())
+  id         String   @id @default(uuid())
+  name       String
+  email      String   @unique
+  password   String?  // OAuth 使用者沒有密碼，nullable
+  avatar     String?
+  provider   String   @default("local") // "local" | "google" | "line"
+  providerId String?  // Google/LINE 回傳的唯一 ID
+  isHost     Boolean  @default(false)
+  isActive   Boolean  @default(true)
+  role       Role     @default(USER)
+  createdAt  DateTime @default(now())
 
   listings  Listing[]
   bookings  Booking[]
