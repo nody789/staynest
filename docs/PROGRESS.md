@@ -22,7 +22,7 @@
 | 層級 | 技術 |
 |------|------|
 | 前端 | React 19 + Vite 5 + Tailwind CSS 3 |
-| 狀態 | Zustand + React Query |
+| 狀態 | Redux Toolkit + React Query（Zustand 版本保留於 src/stores/ 供學習對比）|
 | 地圖 | Leaflet + React Leaflet |
 | 後端 | Node.js + Express 5（ES Modules） |
 | ORM | Prisma 6 |
@@ -38,6 +38,8 @@
 ## 已完成功能
 
 ### 後端 ✅
+
+- [x] Google / LINE / Facebook OAuth 2.0 登入（schema 新增 provider / providerId）
 
 - [x] Express 伺服器（ES Modules）
 - [x] Prisma + PostgreSQL（User, Listing, Booking, Review, Favorite）
@@ -64,6 +66,8 @@
 - [x] 前端測試（Vitest）
 - [x] GitHub Actions CI
 - [x] Admin 後台（獨立 Layout：儀表板、使用者、房源、訂單、評論管理）
+- [x] OAuth 社群登入按鈕（Google / LINE / Facebook）+ OAuthCallbackPage
+- [x] SEO meta tags（react-helmet-async，首頁動態 title、詳情頁 og:image）
 
 ---
 
@@ -89,6 +93,7 @@
 - [x] 使用者頭像 Cloudinary 上傳（點擊頭像直接選檔案）
 - [x] 首頁搜尋結果左右地圖並排（價格標籤 Marker，sticky 側邊）
 - [x] 詳情頁地圖 Marker 加「在 Google Maps 開啟」連結
+- [x] Google / LINE / Facebook OAuth（需在各平台設定 Callback URL 和環境變數）
 
 ---
 
