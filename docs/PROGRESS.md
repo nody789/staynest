@@ -22,7 +22,7 @@
 | 層級 | 技術 |
 |------|------|
 | 前端 | React 19 + Vite 5 + Tailwind CSS 3 |
-| 狀態 | Redux Toolkit + React Query（Zustand 版本保留於 src/stores/ 供學習對比）|
+| 狀態 | Redux Toolkit + React Query |
 | 地圖 | Leaflet + React Leaflet |
 | 後端 | Node.js + Express 5（ES Modules） |
 | ORM | Prisma 6 |
@@ -117,7 +117,8 @@ airbnb-clone/
 │       ├── pages/
 │       ├── hooks/
 │       ├── services/           API 呼叫
-│       ├── stores/             Zustand
+│       ├── stores/             Zustand（保留做學習對比，已不使用）
+│       ├── store/              Redux Toolkit（現用）
 │       └── test/
 └── docs/
 ```
@@ -134,4 +135,17 @@ PORT=5000
 CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
+
+# OAuth 社群登入
+BACKEND_URL=            # 正式站填 https://staynest-siy5.onrender.com
+FRONTEND_URL=           # 正式站填 https://staynest-siy5.onrender.com
+
+GOOGLE_CLIENT_ID=       # Google Cloud Console
+GOOGLE_CLIENT_SECRET=
+
+LINE_CHANNEL_ID=        # LINE Developers Console
+LINE_CHANNEL_SECRET=
+
+FACEBOOK_APP_ID=        # Meta for Developers
+FACEBOOK_APP_SECRET=
 ```
