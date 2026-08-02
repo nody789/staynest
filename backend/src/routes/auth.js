@@ -201,6 +201,7 @@ router.get('/google', (req, res) => {
     response_type: 'code',
     scope: 'openid email profile', // 要求取得 email 和基本個人資料
     access_type: 'offline',
+    prompt: 'select_account', // 強制顯示 Google 帳號選擇畫面，不會自動帶入已登入帳號
   })
   res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`)
 })
