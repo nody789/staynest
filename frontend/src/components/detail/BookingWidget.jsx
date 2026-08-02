@@ -78,9 +78,10 @@ function BookingWidget({ listing }) {
   const { mutate: book, isPending } = useMutation({
     mutationFn: (data) => createBooking(data),
     onSuccess: () => {
-      setMessage('訂房成功！')
+      setMessage('success')
       setRange(undefined)
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['booked-dates', listing.id] })
     },
     onError: (err) => {
       setMessage(err.response?.data?.message || '訂房失敗，請稍後再試')
@@ -196,11 +197,15 @@ function BookingWidget({ listing }) {
       </form>
 
       {/* 訊息 */}
-      {message && (
-        <p className={`text-sm text-center mt-3 ${message.includes('成功') ? 'text-green-600' : 'text-red-500'}`}>
-          {message}
-        </p>
-      )}
+      {message === 'success' ? (
+        // 送出請求成功：用明顯的提示框說明流程，避免使用者誤以為「已確認」
+        <div className="mt-4 bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-800">
+          <p className="font-semibold mb-1">✅ 預訂請求已送出！</p>
+          <p className="text-green-700">等待房東確認後，訂單狀態將更新為「已確認」。你可以在「我的訂單」查看進度。</p>
+        </div>
+      ) : message ? (
+        <p className="text-sm text-center mt-3 text-red-500">{message}</p>
+      ) : null}
 
       {/* 費用明細 */}
       {nights > 0 && (
