@@ -3,12 +3,28 @@
 旅客可瀏覽房源、訂房、留評；房東可管理房源與訂單；後台可管理整個平台。
 使用 React + Node.js 全端開發，部署於 Render。
 
-![CI](https://github.com/nody789/airbnb-clone/actions/workflows/test.yml/badge.svg)
+![CI](https://github.com/nody789/staynest/actions/workflows/test.yml/badge.svg)
 
 > **Live Demo：** [https://staynest-siy5.onrender.com](https://staynest-siy5.onrender.com)
 > **API 文件（Swagger）：** [https://staynest-siy5.onrender.com/api-docs](https://staynest-siy5.onrender.com/api-docs)
 > **⚠️ 免費方案：** 閒置 15 分鐘後休眠，第一次載入約需 30 秒喚醒
 > **Demo 帳號：** 見下方說明
+
+---
+
+## 畫面截圖
+
+> 🔗 Live Demo：[https://staynest-siy5.onrender.com](https://staynest-siy5.onrender.com)（首次載入約需 30 秒喚醒）
+
+| 房源列表 | 房源詳情 |
+|---------|---------|
+| ![房源列表](https://i.imgur.com/placeholder1.png) | ![房源詳情](https://i.imgur.com/placeholder2.png) |
+
+| 訂房日曆 | Admin 後台 |
+|---------|---------|
+| ![訂房日曆](https://i.imgur.com/placeholder3.png) | ![後台](https://i.imgur.com/placeholder4.png) |
+
+> 💡 截圖待補充，目前可直接前往 Live Demo 或本機啟動查看
 
 ---
 
@@ -230,8 +246,8 @@ Favorite
 
 ```bash
 # 1. Clone
-git clone https://github.com/nody789/airbnb-clone.git
-cd airbnb-clone
+git clone https://github.com/nody789/staynest.git
+cd staynest
 
 # 2. 後端環境變數
 cp backend/.env.example backend/.env
@@ -270,9 +286,11 @@ GitHub Actions 在每次 push to main 時自動執行。
 
 ## 未來規劃
 
-- [ ] Calendar 標示已佔用日期
+- [x] Calendar 標示已佔用日期（含 PENDING 狀態）
 - [x] 房源列表分頁
 - [x] 使用者頭像 Cloudinary 上傳
 - [x] Google / LINE / Facebook 社群登入（OAuth 2.0）
 - [x] SEO 優化（react-helmet-async 動態 meta / OG tags）
 - [ ] Email 通知（SendGrid）
+- [ ] 即時通訊（房客 ↔ 房東）
+- [ ] 多語系（i18n）
