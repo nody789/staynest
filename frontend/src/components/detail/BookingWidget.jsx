@@ -49,12 +49,13 @@ function BookingWidget({ listing }) {
   // DayPicker disabled 接受陣列，每個元素可以是：
   //   { before: Date }        → 這個日期之前都 disabled
   //   { from: Date, to: Date } → 這個範圍內都 disabled
+  const bookedRanges = bookedPeriods.map(p => ({
+    from: new Date(p.checkIn),
+    to:   new Date(p.checkOut),
+  }))
   const disabledDays = [
     { before: new Date() }, // 過去日期無法選
-    ...bookedPeriods.map(p => ({
-      from: new Date(p.checkIn),
-      to:   new Date(p.checkOut),
-    })),
+    ...bookedRanges,
   ]
 
   // 計算天數
@@ -139,8 +140,31 @@ function BookingWidget({ listing }) {
               onSelect={setRange}
               disabled={disabledDays}
               numberOfMonths={1}
+              modifiers={{ booked: bookedRanges }}
+              modifiersStyles={{
+                // 已預訂日期：紅底 + 刪除線，視覺上與單純過去日期（灰色）區隔
+                booked: {
+                  backgroundColor: '#fee2e2',
+                  color: '#ef4444',
+                  textDecoration: 'line-through',
+                  opacity: 1,
+                },
+              }}
             />
           </div>
+          {/* 日曆圖例 */}
+          {bookedRanges.length > 0 && (
+            <div className="flex items-center gap-3 mt-2 px-1 text-xs text-gray-500">
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded-sm bg-rose-100 border border-rose-300" />
+                已預訂（無法選取）
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded-sm bg-rose-500" />
+                已選取
+              </span>
+            </div>
+          )}
         </div>
 
         {/* 已選日期顯示 */}

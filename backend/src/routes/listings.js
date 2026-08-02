@@ -43,7 +43,13 @@ router.get('/', async (req, res) => {
     const skip     = (pageNum - 1) * limitNum
 
     const where = {
-      ...(location && { location: { contains: location, mode: 'insensitive' } }),
+      // OR 條件：關鍵字同時比對標題和地點，讓使用者輸入房源名稱或城市都能找到
+      ...(location && {
+        OR: [
+          { title:    { contains: location, mode: 'insensitive' } },
+          { location: { contains: location, mode: 'insensitive' } },
+        ],
+      }),
       ...(category && { category }),
       ...(minPrice && { price: { gte: parseFloat(minPrice) } }),
       ...(maxPrice && { price: { lte: parseFloat(maxPrice) } }),
@@ -88,7 +94,8 @@ router.get('/:id/booked-dates', async (req, res) => {
     const bookings = await prisma.booking.findMany({
       where: {
         listingId: req.params.id,
-        status: 'CONFIRMED',
+        // CONFIRMED 和 PENDING 都算已佔用，避免同一時段被重複預訂
+        status: { in: ['CONFIRMED', 'PENDING'] },
         // gte = greater than or equal：只取退房日在今天之後的訂單
         checkOut: { gte: new Date() },
       },
