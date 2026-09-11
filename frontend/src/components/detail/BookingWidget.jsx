@@ -98,6 +98,27 @@ function BookingWidget({ listing }) {
     })
   }
 
+  // onSelect 兜底驗證：動態 disabled 擋住大部分情況，但 DayPicker v10 在 range 模式
+  // 有時仍允許點擊跨越已訂日期，這裡做最後一道把關
+  const handleRangeSelect = (newRange) => {
+    if (!newRange) { setRange(undefined); return }
+
+    if (newRange.from && newRange.to) {
+      const crossesBooked = bookedPeriods.some(period => {
+        const s = new Date(period.checkIn)
+        const e = new Date(period.checkOut)
+        return newRange.from < e && newRange.to > s
+      })
+      if (crossesBooked) {
+        // 把第二次點擊的日期當成新的入住起點，讓使用者重選
+        setRange({ from: newRange.to, to: undefined })
+        return
+      }
+    }
+
+    setRange(newRange)
+  }
+
   const { mutate: book, isPending } = useMutation({
     mutationFn: (data) => createBooking(data),
     onSuccess: () => {
@@ -149,7 +170,7 @@ function BookingWidget({ listing }) {
             disabled：已佔用日期和過去日期會標灰、無法點選
             selected：目前選取的範圍（高亮顯示）
             onSelect：使用者改變選取時觸發 */}
-        <div className="mb-4 flex justify-center">
+        <div className="mb-4 flex flex-col items-center">
           <div
             className="rounded-xl overflow-hidden border border-gray-200"
             style={{
@@ -161,7 +182,7 @@ function BookingWidget({ listing }) {
             <DayPicker
               mode="range"
               selected={range}
-              onSelect={setRange}
+              onSelect={handleRangeSelect}
               disabled={disabledDays}
               numberOfMonths={1}
               modifiers={{ booked: bookedRanges }}
@@ -177,7 +198,7 @@ function BookingWidget({ listing }) {
               }}
             />
           </div>
-          {/* 日曆圖例 */}
+          {/* 日曆圖例：放在日曆正下方 */}
           {bookedRanges.length > 0 && (
             <div className="flex items-center gap-3 mt-2 px-1 text-xs text-gray-500">
               <span className="flex items-center gap-1">
