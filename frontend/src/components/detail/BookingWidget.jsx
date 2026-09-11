@@ -7,7 +7,7 @@
 //   3. 自動計算總價
 //   4. 送出訂房請求
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSelector } from 'react-redux'
@@ -45,18 +45,41 @@ function BookingWidget({ listing }) {
     staleTime: 1000 * 60 * 5,
   })
 
-  // ── 把已預訂期間轉成 DayPicker 的 disabled 格式 ──
+  // ── 把已預訂期間轉成 DayPicker 的 modifier/disabled 格式 ──
   // DayPicker disabled 接受陣列，每個元素可以是：
-  //   { before: Date }        → 這個日期之前都 disabled
+  //   { before: Date }         → 這個日期之前都 disabled
   //   { from: Date, to: Date } → 這個範圍內都 disabled
-  const bookedRanges = bookedPeriods.map(p => ({
-    from: new Date(p.checkIn),
-    to:   new Date(p.checkOut),
-  }))
-  const disabledDays = [
-    { before: new Date() }, // 過去日期無法選
-    ...bookedRanges,
-  ]
+  //   { after: Date }          → 這個日期之後都 disabled
+  const bookedRanges = useMemo(() =>
+    bookedPeriods.map(p => ({
+      from: new Date(p.checkIn),
+      to:   new Date(p.checkOut),
+    })),
+    [bookedPeriods]
+  )
+
+  // 動態 disabled：
+  //   正常情況：過去日期 + 所有已訂區間
+  //   選了入住日（from）但還沒選退房日時：額外把「下個已訂期間的入住日之後」全關掉
+  //   → 這樣 hover 預覽不會穿越已訂日期，使用者也無法選出跨越已訂期間的範圍
+  const disabledDays = useMemo(() => {
+    const base = [{ before: new Date() }, ...bookedRanges]
+
+    if (range?.from && !range?.to) {
+      // 找出 from 之後最近的一個已訂入住日
+      const nextBookedStart = bookedPeriods
+        .map(p => new Date(p.checkIn))
+        .filter(d => d > range.from)
+        .sort((a, b) => a - b)[0]
+
+      if (nextBookedStart) {
+        // { after: date }：date 當天仍可選（允許退房日 = 下一位旅客的入住日），date 之後不可選
+        base.push({ after: nextBookedStart })
+      }
+    }
+
+    return base
+  }, [range?.from, range?.to, bookedRanges, bookedPeriods])
 
   // 計算天數
   const nights = range?.from && range?.to
@@ -143,11 +166,12 @@ function BookingWidget({ listing }) {
               numberOfMonths={1}
               modifiers={{ booked: bookedRanges }}
               modifiersStyles={{
-                // 已預訂日期：紅底 + 刪除線，視覺上與單純過去日期（灰色）區隔
+                // 已預訂日期：深粉底 + 深紅字 + 刪除線，讓旅客一眼看出不可選
                 booked: {
-                  backgroundColor: '#fee2e2',
-                  color: '#ef4444',
+                  backgroundColor: '#fca5a5',   // rose-300，比 rose-100 明顯很多
+                  color: '#7f1d1d',              // rose-950，深色確保對比度
                   textDecoration: 'line-through',
+                  fontWeight: '600',
                   opacity: 1,
                 },
               }}
@@ -157,7 +181,7 @@ function BookingWidget({ listing }) {
           {bookedRanges.length > 0 && (
             <div className="flex items-center gap-3 mt-2 px-1 text-xs text-gray-500">
               <span className="flex items-center gap-1">
-                <span className="inline-block w-3 h-3 rounded-sm bg-rose-100 border border-rose-300" />
+                <span className="inline-block w-3 h-3 rounded-sm bg-rose-300 border border-rose-400" />
                 已預訂（無法選取）
               </span>
               <span className="flex items-center gap-1">
