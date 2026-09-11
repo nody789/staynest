@@ -123,7 +123,88 @@ async function main() {
     },
   ] : []
 
-  const allBookings = [...guestBookings, ...hostIncomingBookings]
+  // ── 9 月 / 10 月固定日期訂單（示範日期衝突驗證）─────────
+  // 針對熱門房源，塞滿大量訂單讓日曆看起來幾乎被訂滿
+  const d = (str) => new Date(str)   // 固定日期快捷
+
+  const popular = [
+    { id: 'be96aa3c-50d3-4d0f-8d5e-d89b2441ac6a', price: 3800 }, // 信義區現代設計公寓
+    { id: 'e1ee9504-0eb7-41da-884a-38419b8f6a77', price: 3500 }, // 九份山城雨霧茶樓
+    { id: '682aeb07-7b18-4ff8-942a-17e386186e86', price: 5500 }, // 墾丁南灣海景獨棟別墅
+    { id: 'a86c3e9c-7ca2-4d89-b524-90ea8af3ee48', price: 3900 }, // 花蓮七星潭海岸套房
+    { id: '1ca112a2-a5ff-498e-a301-2820ec0248be', price: 4500 }, // 北投百年溫泉旅館
+  ]
+
+  const guests = [
+    guest?.id,
+    guest2?.id,
+    guest3?.id,
+    (await prisma.user.findUnique({ where: { email: 'guest4@demo.com' } }))?.id,
+    (await prisma.user.findUnique({ where: { email: 'guest5@demo.com' } }))?.id,
+  ].filter(Boolean)
+
+  // 每筆：[listingIndex, guestIndex, checkIn, checkOut, status]
+  const fixedBookings = [
+    // ── 信義區現代設計公寓 ──
+    [0, 0, '2026-09-01', '2026-09-04', 'CONFIRMED'],
+    [0, 1, '2026-09-06', '2026-09-09', 'CONFIRMED'],
+    [0, 2, '2026-09-12', '2026-09-16', 'CONFIRMED'],
+    [0, 3, '2026-09-19', '2026-09-22', 'PENDING'],
+    [0, 4, '2026-09-25', '2026-09-28', 'CONFIRMED'],
+    [0, 0, '2026-10-02', '2026-10-06', 'CONFIRMED'],
+    [0, 1, '2026-10-09', '2026-10-13', 'CONFIRMED'],
+    [0, 2, '2026-10-16', '2026-10-20', 'PENDING'],
+    [0, 3, '2026-10-23', '2026-10-27', 'CONFIRMED'],
+
+    // ── 九份山城雨霧茶樓 ──
+    [1, 1, '2026-09-03', '2026-09-06', 'CONFIRMED'],
+    [1, 2, '2026-09-08', '2026-09-12', 'CONFIRMED'],
+    [1, 3, '2026-09-15', '2026-09-18', 'PENDING'],
+    [1, 4, '2026-09-21', '2026-09-25', 'CONFIRMED'],
+    [1, 0, '2026-10-01', '2026-10-05', 'CONFIRMED'],
+    [1, 1, '2026-10-08', '2026-10-11', 'CONFIRMED'],
+    [1, 2, '2026-10-14', '2026-10-18', 'PENDING'],
+    [1, 3, '2026-10-21', '2026-10-25', 'CONFIRMED'],
+
+    // ── 墾丁南灣海景獨棟別墅 ──
+    [2, 2, '2026-09-04', '2026-09-08', 'CONFIRMED'],
+    [2, 3, '2026-09-11', '2026-09-15', 'CONFIRMED'],
+    [2, 4, '2026-09-18', '2026-09-22', 'CONFIRMED'],
+    [2, 0, '2026-09-26', '2026-09-30', 'PENDING'],
+    [2, 1, '2026-10-03', '2026-10-07', 'CONFIRMED'],
+    [2, 2, '2026-10-10', '2026-10-14', 'CONFIRMED'],
+    [2, 3, '2026-10-18', '2026-10-22', 'CONFIRMED'],
+    [2, 4, '2026-10-25', '2026-10-29', 'PENDING'],
+
+    // ── 花蓮七星潭海岸套房 ──
+    [3, 3, '2026-09-02', '2026-09-05', 'CONFIRMED'],
+    [3, 4, '2026-09-07', '2026-09-10', 'CONFIRMED'],
+    [3, 0, '2026-09-13', '2026-09-17', 'CONFIRMED'],
+    [3, 1, '2026-09-20', '2026-09-24', 'PENDING'],
+    [3, 2, '2026-10-02', '2026-10-06', 'CONFIRMED'],
+    [3, 3, '2026-10-09', '2026-10-13', 'CONFIRMED'],
+    [3, 4, '2026-10-17', '2026-10-21', 'CONFIRMED'],
+    [3, 0, '2026-10-24', '2026-10-28', 'PENDING'],
+
+    // ── 北投百年溫泉旅館 ──
+    [4, 4, '2026-09-05', '2026-09-09', 'CONFIRMED'],
+    [4, 0, '2026-09-12', '2026-09-16', 'CONFIRMED'],
+    [4, 1, '2026-09-19', '2026-09-23', 'CONFIRMED'],
+    [4, 2, '2026-09-26', '2026-09-29', 'PENDING'],
+    [4, 3, '2026-10-04', '2026-10-08', 'CONFIRMED'],
+    [4, 4, '2026-10-11', '2026-10-15', 'CONFIRMED'],
+    [4, 0, '2026-10-19', '2026-10-23', 'CONFIRMED'],
+    [4, 1, '2026-10-26', '2026-10-30', 'PENDING'],
+  ].map(([li, gi, checkIn, checkOut, status]) => ({
+    guestId: guests[gi % guests.length],
+    listingId: popular[li].id,
+    checkIn: d(checkIn),
+    checkOut: d(checkOut),
+    totalPrice: popular[li].price * (new Date(checkOut) - new Date(checkIn)) / 86400000,
+    status,
+  }))
+
+  const allBookings = [...guestBookings, ...hostIncomingBookings, ...fixedBookings]
 
   let count = 0
   for (const data of allBookings) {
